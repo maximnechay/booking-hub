@@ -79,6 +79,7 @@ export type Database = {
           tenant_id: string
           time_range: unknown
           updated_at: string | null
+          variant_id: string | null
         }
         Insert: {
           cancelled_at?: string | null
@@ -102,6 +103,7 @@ export type Database = {
           tenant_id: string
           time_range?: unknown
           updated_at?: string | null
+          variant_id?: string | null
         }
         Update: {
           cancelled_at?: string | null
@@ -125,6 +127,7 @@ export type Database = {
           tenant_id?: string
           time_range?: unknown
           updated_at?: string | null
+          variant_id?: string | null
         }
         Relationships: [
           {
@@ -148,11 +151,120 @@ export type Database = {
             referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "bookings_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "service_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_categories: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          icon: string | null
+          id: string
+          is_active: boolean | null
+          name: string
+          parent_id: string | null
+          sort_order: number | null
+          tenant_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name: string
+          parent_id?: string | null
+          sort_order?: number | null
+          tenant_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          icon?: string | null
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          parent_id?: string | null
+          sort_order?: number | null
+          tenant_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_categories_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "service_categories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      service_variants: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration: number
+          id: string
+          is_active: boolean | null
+          name: string
+          price: number
+          service_id: string
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration: number
+          id?: string
+          is_active?: boolean | null
+          name: string
+          price: number
+          service_id: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration?: number
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          price?: number
+          service_id?: string
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "service_variants_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
         ]
       }
       services: {
         Row: {
           buffer_after: number | null
+          category_id: string | null
           created_at: string | null
           description: string | null
           duration: number
@@ -169,6 +281,7 @@ export type Database = {
         }
         Insert: {
           buffer_after?: number | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           duration?: number
@@ -185,6 +298,7 @@ export type Database = {
         }
         Update: {
           buffer_after?: number | null
+          category_id?: string | null
           created_at?: string | null
           description?: string | null
           duration?: number
@@ -200,6 +314,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "services_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "service_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "services_tenant_id_fkey"
             columns: ["tenant_id"]
@@ -311,14 +432,17 @@ export type Database = {
         Row: {
           service_id: string
           staff_id: string
+          tenant_id: string
         }
         Insert: {
           service_id: string
           staff_id: string
+          tenant_id: string
         }
         Update: {
           service_id?: string
           staff_id?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -333,6 +457,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_services_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]

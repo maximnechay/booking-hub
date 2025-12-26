@@ -29,6 +29,7 @@ export const createServiceSchema = z.object({
         .default(0),
     is_active: z.boolean().default(true),
     online_booking_enabled: z.boolean().default(true),
+    category_id: z.string().uuid().nullable().optional(),
 })
 
 export const updateServiceSchema = createServiceSchema.partial()
