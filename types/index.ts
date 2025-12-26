@@ -2,4 +2,4 @@
 
 export * from './enums'
 export * from './models'
-export * from './database'
+export type { Database } from './supabase'
