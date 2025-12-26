@@ -5,7 +5,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,6 +14,7 @@ export default function NewServicePage() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -29,42 +29,16 @@ export default function NewServicePage() {
         e.preventDefault()
         setIsLoading(true)
         setError(null)
-
-        if (!formData.name) {
-            setError('Name ist erforderlich')
-            setIsLoading(false)
-            return
-        }
+        setFieldErrors({})
 
         try {
-            const supabase = createClient()
-
-            // Получаем tenant_id
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) {
-                router.push('/login')
-                return
-            }
-
-            const { data: userData } = await supabase
-                .from('users')
-                .select('tenant_id')
-                .eq('id', user.id)
-                .single()
-
-            if (!userData?.tenant_id) {
-                setError('Fehler beim Laden der Benutzerdaten')
-                return
-            }
-
             // Конвертируем цену в центы
             const priceInCents = Math.round(parseFloat(formData.price || '0') * 100)
 
-            // Создаём услугу
-            const { error: insertError } = await supabase
-                .from('services')
-                .insert({
-                    tenant_id: userData.tenant_id,
+            const response = await fetch('/api/services', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     name: formData.name,
                     description: formData.description || null,
                     duration: formData.duration,
@@ -72,11 +46,16 @@ export default function NewServicePage() {
                     buffer_after: formData.buffer_after,
                     is_active: formData.is_active,
                     online_booking_enabled: formData.online_booking_enabled,
-                })
+                }),
+            })
 
-            if (insertError) {
-                console.error('Insert error:', insertError)
-                setError('Fehler beim Erstellen der Dienstleistung')
+            const result = await response.json()
+
+            if (!response.ok) {
+                if (result.details) {
+                    setFieldErrors(result.details)
+                }
+                setError(result.error || 'Fehler beim Erstellen der Dienstleistung')
                 return
             }
 
@@ -120,6 +99,9 @@ export default function NewServicePage() {
                             disabled={isLoading}
                             required
                         />
+                        {fieldErrors.name && (
+                            <p className="text-sm text-red-600">{fieldErrors.name[0]}</p>
+                        )}
                     </div>
 
                     <div className="space-y-2">
@@ -133,6 +115,9 @@ export default function NewServicePage() {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={3}
                         />
+                        {fieldErrors.description && (
+                            <p className="text-sm text-red-600">{fieldErrors.description[0]}</p>
+                        )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -149,6 +134,9 @@ export default function NewServicePage() {
                                 disabled={isLoading}
                                 required
                             />
+                            {fieldErrors.duration && (
+                                <p className="text-sm text-red-600">{fieldErrors.duration[0]}</p>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -164,6 +152,9 @@ export default function NewServicePage() {
                                 disabled={isLoading}
                                 required
                             />
+                            {fieldErrors.price && (
+                                <p className="text-sm text-red-600">{fieldErrors.price[0]}</p>
+                            )}
                         </div>
                     </div>
 
