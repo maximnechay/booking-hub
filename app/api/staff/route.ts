@@ -103,6 +103,7 @@ export async function POST(request: NextRequest) {
             const staffServices = service_ids.map(service_id => ({
                 staff_id: staff.id,
                 service_id,
+                tenant_id: userData.tenant_id,
             }))
 
             const { error: linkError } = await supabase

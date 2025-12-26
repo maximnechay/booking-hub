@@ -116,6 +116,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
         // Вставляем новое
         const scheduleRows = scheduleData.map(day => ({
+            tenant_id: userData.tenant_id,
             staff_id: id,
             ...day,
         }))

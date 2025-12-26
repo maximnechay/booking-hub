@@ -127,6 +127,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
                 const staffServices = service_ids.map(service_id => ({
                     staff_id: id,
                     service_id,
+                    tenant_id: userData.tenant_id,
                 }))
 
                 await supabase
