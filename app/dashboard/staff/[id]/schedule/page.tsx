@@ -160,6 +160,8 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
                                             <Label className="text-xs text-gray-500">Start</Label>
                                             <Input
                                                 type="time"
+                                                lang="de"
+                                                step={60}
                                                 value={day.start_time}
                                                 onChange={(e) => updateDay(index, { start_time: e.target.value })}
                                             />
@@ -168,6 +170,8 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
                                             <Label className="text-xs text-gray-500">Ende</Label>
                                             <Input
                                                 type="time"
+                                                lang="de"
+                                                step={60}
                                                 value={day.end_time}
                                                 onChange={(e) => updateDay(index, { end_time: e.target.value })}
                                             />
@@ -176,6 +180,8 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
                                             <Label className="text-xs text-gray-500">Pause von</Label>
                                             <Input
                                                 type="time"
+                                                lang="de"
+                                                step={60}
                                                 value={day.break_start || ''}
                                                 onChange={(e) => updateDay(index, { break_start: e.target.value || null })}
                                             />
@@ -184,9 +190,18 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
                                             <Label className="text-xs text-gray-500">Pause bis</Label>
                                             <Input
                                                 type="time"
+                                                lang="de"
+                                                step={60}
                                                 value={day.break_end || ''}
                                                 onChange={(e) => updateDay(index, { break_end: e.target.value || null })}
                                             />
+                                            <button
+                                                type="button"
+                                                className="mt-2 text-xs text-gray-500 hover:text-gray-700"
+                                                onClick={() => updateDay(index, { break_start: null, break_end: null })}
+                                            >
+                                                Pause loschen
+                                            </button>
                                         </div>
                                     </div>
                                 )}
