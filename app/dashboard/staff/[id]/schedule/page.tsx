@@ -6,11 +6,15 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft } from 'lucide-react'
 
 const WEEKDAYS = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag']
+const HOURS = Array.from({ length: 24 }, (_, hour) => String(hour).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, minute) => String(minute).padStart(2, '0'))
+const SELECT_CLASS = 'h-10 w-16 rounded-md border border-input bg-background px-2 py-2 text-sm tabular-nums'
+const TIME_GROUP_CLASS = 'flex items-center gap-2'
+const TIME_BLOCK_CLASS = 'flex flex-col gap-1'
 
 interface ScheduleDay {
     day_of_week: number
@@ -24,11 +28,37 @@ interface ScheduleDay {
 const defaultSchedule: ScheduleDay[] = WEEKDAYS.map((_, index) => ({
     day_of_week: index,
     start_time: '09:00',
-    end_time: '18:00',
+    end_time: '20:00',
     break_start: null,
     break_end: null,
     is_working: index < 5, // Пн-Пт работает
 }))
+
+const normalizeTime = (value: string | null) => {
+    if (!value) {
+        return value
+    }
+
+    const match = value.match(/^([01]\d|2[0-3]):([0-5]\d)/)
+    if (!match) {
+        return value
+    }
+
+    return `${match[1]}:${match[2]}`
+}
+
+const getTimeParts = (value: string | null) => {
+    if (!value) {
+        return { hour: '', minute: '' }
+    }
+
+    const match = value.match(/^([01]\d|2[0-3]):([0-5]\d)/)
+    if (!match) {
+        return { hour: '00', minute: '00' }
+    }
+
+    return { hour: match[1], minute: match[2] }
+}
 
 export default function StaffSchedulePage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = use(params)
@@ -59,7 +89,17 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
                         const existing = scheduleData.schedule.find(
                             (s: ScheduleDay) => s.day_of_week === day.day_of_week
                         )
-                        return existing || day
+                        if (!existing) {
+                            return day
+                        }
+
+                        return {
+                            ...existing,
+                            start_time: normalizeTime(existing.start_time) || day.start_time,
+                            end_time: normalizeTime(existing.end_time) || day.end_time,
+                            break_start: normalizeTime(existing.break_start),
+                            break_end: normalizeTime(existing.break_end),
+                        }
                     })
                     setSchedule(merged)
                 }
@@ -76,6 +116,31 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
         setSchedule(prev => prev.map((day, i) =>
             i === dayIndex ? { ...day, ...updates } : day
         ))
+    }
+
+    const updateTimeField = (
+        dayIndex: number,
+        field: 'start_time' | 'end_time' | 'break_start' | 'break_end',
+        part: 'hour' | 'minute',
+        value: string,
+        allowEmpty = false
+    ) => {
+        const current = schedule[dayIndex]?.[field] ?? null
+        const parts = getTimeParts(current)
+
+        if (allowEmpty && value === '') {
+            if (part === 'hour' && parts.minute !== '') {
+                return updateDay(dayIndex, { [field]: null })
+            }
+            if (part === 'minute' && parts.hour !== '') {
+                return updateDay(dayIndex, { [field]: null })
+            }
+            return updateDay(dayIndex, { [field]: null })
+        }
+
+        const nextHour = part === 'hour' ? value : (parts.hour || '00')
+        const nextMinute = part === 'minute' ? value : (parts.minute || '00')
+        updateDay(dayIndex, { [field]: `${nextHour}:${nextMinute}` })
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -155,46 +220,106 @@ export default function StaffSchedulePage({ params }: { params: Promise<{ id: st
                                 </div>
 
                                 {day.is_working && (
-                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 ml-7">
-                                        <div className="space-y-1">
+                                    <div className="ml-7 flex flex-wrap items-start gap-x-8 gap-y-4">
+                                        <div className={TIME_BLOCK_CLASS}>
                                             <Label className="text-xs text-gray-500">Start</Label>
-                                            <Input
-                                                type="time"
-                                                lang="de"
-                                                step={60}
-                                                value={day.start_time}
-                                                onChange={(e) => updateDay(index, { start_time: e.target.value })}
-                                            />
+                                            <div className={TIME_GROUP_CLASS}>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.start_time).hour}
+                                                    onChange={(e) => updateTimeField(index, 'start_time', 'hour', e.target.value)}
+                                                >
+                                                    {HOURS.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                                <span className="text-sm text-gray-400">:</span>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.start_time).minute}
+                                                    onChange={(e) => updateTimeField(index, 'start_time', 'minute', e.target.value)}
+                                                >
+                                                    {MINUTES.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className={TIME_BLOCK_CLASS}>
                                             <Label className="text-xs text-gray-500">Ende</Label>
-                                            <Input
-                                                type="time"
-                                                lang="de"
-                                                step={60}
-                                                value={day.end_time}
-                                                onChange={(e) => updateDay(index, { end_time: e.target.value })}
-                                            />
+                                            <div className={TIME_GROUP_CLASS}>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.end_time).hour}
+                                                    onChange={(e) => updateTimeField(index, 'end_time', 'hour', e.target.value)}
+                                                >
+                                                    {HOURS.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                                <span className="text-sm text-gray-400">:</span>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.end_time).minute}
+                                                    onChange={(e) => updateTimeField(index, 'end_time', 'minute', e.target.value)}
+                                                >
+                                                    {MINUTES.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className={TIME_BLOCK_CLASS}>
                                             <Label className="text-xs text-gray-500">Pause von</Label>
-                                            <Input
-                                                type="time"
-                                                lang="de"
-                                                step={60}
-                                                value={day.break_start || ''}
-                                                onChange={(e) => updateDay(index, { break_start: e.target.value || null })}
-                                            />
+                                            <div className={TIME_GROUP_CLASS}>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.break_start).hour}
+                                                    onChange={(e) => updateTimeField(index, 'break_start', 'hour', e.target.value, true)}
+                                                >
+                                                    <option value="">--</option>
+                                                    {HOURS.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                                <span className="text-sm text-gray-400">:</span>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.break_start).minute}
+                                                    onChange={(e) => updateTimeField(index, 'break_start', 'minute', e.target.value, true)}
+                                                >
+                                                    <option value="">--</option>
+                                                    {MINUTES.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                         </div>
-                                        <div className="space-y-1">
+                                        <div className={TIME_BLOCK_CLASS}>
                                             <Label className="text-xs text-gray-500">Pause bis</Label>
-                                            <Input
-                                                type="time"
-                                                lang="de"
-                                                step={60}
-                                                value={day.break_end || ''}
-                                                onChange={(e) => updateDay(index, { break_end: e.target.value || null })}
-                                            />
+                                            <div className={TIME_GROUP_CLASS}>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.break_end).hour}
+                                                    onChange={(e) => updateTimeField(index, 'break_end', 'hour', e.target.value, true)}
+                                                >
+                                                    <option value="">--</option>
+                                                    {HOURS.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                                <span className="text-sm text-gray-400">:</span>
+                                                <select
+                                                    className={SELECT_CLASS}
+                                                    value={getTimeParts(day.break_end).minute}
+                                                    onChange={(e) => updateTimeField(index, 'break_end', 'minute', e.target.value, true)}
+                                                >
+                                                    <option value="">--</option>
+                                                    {MINUTES.map(option => (
+                                                        <option key={option} value={option}>{option}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
                                             <button
                                                 type="button"
                                                 className="mt-2 text-xs text-gray-500 hover:text-gray-700"

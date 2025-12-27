@@ -11,12 +11,14 @@ import {
     Clock,
     Code,
     Settings,
+    FolderTree,
     LogOut
 } from 'lucide-react'
 
 const navigation = [
     { name: 'Übersicht', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Termine', href: '/dashboard/bookings', icon: Calendar },
+    { name: 'Kategorien', href: '/dashboard/categories', icon: FolderTree },
     { name: 'Dienstleistungen', href: '/dashboard/services', icon: Scissors },
     { name: 'Mitarbeiter', href: '/dashboard/staff', icon: Users },
     { name: 'Öffnungszeiten', href: '/dashboard/schedule', icon: Clock },
@@ -50,7 +52,7 @@ export default async function DashboardLayout({
     return (
         <div className="min-h-screen bg-gray-50">
             {/* Sidebar */}
-            <aside className="fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
+            <aside className="hidden md:block fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-200">
                 {/* Logo */}
                 <div className="h-16 flex items-center px-6 border-b border-gray-200">
                     <div className="flex items-center gap-3">
@@ -101,8 +103,35 @@ export default async function DashboardLayout({
             </aside>
 
             {/* Main content */}
-            <main className="pl-64">
-                <div className="p-8">
+            <main className="md:pl-64">
+                <div className="md:hidden bg-white border-b border-gray-200">
+                    <div className="h-14 flex items-center px-4">
+                        <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                                {userData.tenant?.name?.charAt(0) || 'B'}
+                            </span>
+                        </div>
+                        <div className="ml-3">
+                            <p className="font-semibold text-gray-900 text-sm truncate max-w-[200px]">
+                                {userData.tenant?.name}
+                            </p>
+                            <p className="text-xs text-gray-500">/{userData.tenant?.slug}</p>
+                        </div>
+                    </div>
+                    <nav className="flex items-center gap-2 px-4 pb-3 overflow-x-auto">
+                        {navigation.map((item) => (
+                            <Link
+                                key={item.name}
+                                href={item.href}
+                                className="flex items-center gap-2 whitespace-nowrap px-3 py-1.5 text-sm font-medium text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200"
+                            >
+                                <item.icon className="h-4 w-4 text-gray-500" />
+                                {item.name}
+                            </Link>
+                        ))}
+                    </nav>
+                </div>
+                <div className="p-4 md:p-8">
                     {children}
                 </div>
             </main>

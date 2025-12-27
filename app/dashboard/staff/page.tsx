@@ -33,10 +33,10 @@ export default async function StaffPage() {
 
     return (
         <div>
-            <div className="flex items-center justify-between mb-8">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-8">
                 <h1 className="text-2xl font-bold text-gray-900">Mitarbeiter</h1>
                 <Link href="/dashboard/staff/new">
-                    <Button>
+                    <Button className="w-full sm:w-auto">
                         <Plus className="h-4 w-4 mr-2" />
                         Neuer Mitarbeiter
                     </Button>
@@ -44,7 +44,74 @@ export default async function StaffPage() {
             </div>
 
             {staff && staff.length > 0 ? (
-                <div className="bg-white rounded-lg shadow overflow-hidden">
+                <>
+                    <div className="space-y-4 md:hidden">
+                        {staff.map((member) => (
+                            <div key={member.id} className="bg-white rounded-lg shadow p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center">
+                                        <span className="text-sm font-medium text-gray-600">
+                                            {member.name.charAt(0).toUpperCase()}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-gray-900">{member.name}</p>
+                                        <span className={`inline-flex mt-1 px-2 py-0.5 text-xs font-medium rounded-full ${member.is_active
+                                            ? 'bg-green-100 text-green-800'
+                                            : 'bg-gray-100 text-gray-800'
+                                            }`}>
+                                            {member.is_active ? 'Aktiv' : 'Inaktiv'}
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="text-sm text-gray-500 space-y-1">
+                                    {member.email && <p>{member.email}</p>}
+                                    {member.phone && <p>{member.phone}</p>}
+                                    {!member.email && !member.phone && <p className="text-gray-400">-</p>}
+                                </div>
+                                <div className="mt-3">
+                                    <div className="flex flex-wrap gap-1">
+                                        {member.services && member.services.length > 0 ? (
+                                            member.services.slice(0, 3).map((s: { service: { id: string; name: string } }) => (
+                                                <span
+                                                    key={s.service.id}
+                                                    className="inline-flex px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded"
+                                                >
+                                                    {s.service.name}
+                                                </span>
+                                            ))
+                                        ) : (
+                                            <span className="text-sm text-gray-400">Keine</span>
+                                        )}
+                                        {member.services && member.services.length > 3 && (
+                                            <span className="text-xs text-gray-500">
+                                                +{member.services.length - 3}
+                                            </span>
+                                        )}
+                                    </div>
+                                </div>
+                                <div className="mt-4 flex items-center gap-2">
+                                    <Link href={`/dashboard/staff/${member.id}/schedule`} className="flex-1">
+                                        <Button variant="ghost" size="sm" className="w-full justify-center" title="Arbeitszeiten">
+                                            <Clock className="h-4 w-4 mr-2" />
+                                            Zeiten
+                                        </Button>
+                                    </Link>
+                                    <Link href={`/dashboard/staff/${member.id}/edit`} className="flex-1">
+                                        <Button variant="ghost" size="sm" className="w-full justify-center">
+                                            <Pencil className="h-4 w-4 mr-2" />
+                                            Bearbeiten
+                                        </Button>
+                                    </Link>
+                                    <Button variant="ghost" size="sm" className="flex-1 w-full justify-center text-red-600 hover:text-red-700">
+                                        <Trash2 className="h-4 w-4 mr-2" />
+                                        Loschen
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
                             <tr>
@@ -123,7 +190,8 @@ export default async function StaffPage() {
                             ))}
                         </tbody>
                     </table>
-                </div>
+                    </div>
+                </>
             ) : (
                 <div className="bg-white rounded-lg shadow p-12 text-center">
                     <p className="text-gray-500 mb-4">Noch keine Mitarbeiter vorhanden</p>
