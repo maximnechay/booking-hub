@@ -162,31 +162,27 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         const staffId = selectedStaff.id
 
         async function checkAvailableDates() {
-            const unavailable: Date[] = []
             const today = startOfDay(new Date())
+            const from = format(addDays(today, 1), 'yyyy-MM-dd')
+            const to = format(addDays(today, 60), 'yyyy-MM-dd')
 
-            const checkPromises = []
-            for (let i = 1; i <= 60; i++) {
-                const date = addDays(today, i)
-                const dateStr = format(date, 'yyyy-MM-dd')
-
-                checkPromises.push(
-                    fetch(`/api/widget/${slug}/slots?service_id=${serviceId}&staff_id=${staffId}&date=${dateStr}`)
-                        .then(res => res.json())
-                        .then(data => {
-                            if (!data.slots || data.slots.length === 0) {
-                                unavailable.push(date)
-                            }
-                        })
-                        .catch(() => unavailable.push(date))
-                )
+            try {
+                const params = new URLSearchParams({
+                    service_id: serviceId,
+                    staff_id: staffId,
+                    from,
+                    to,
+                })
+                const res = await fetch(`/api/widget/${slug}/availability?${params.toString()}`)
+                const data = await res.json()
+                if (data.unavailable) {
+                    setUnavailableDates(data.unavailable.map((date: string) => new Date(date)))
+                } else {
+                    setUnavailableDates([])
+                }
+            } catch (err) {
+                setUnavailableDates([])
             }
-
-            for (let i = 0; i < checkPromises.length; i += 10) {
-                await Promise.all(checkPromises.slice(i, i + 10))
-            }
-
-            setUnavailableDates(unavailable)
         }
 
         checkAvailableDates()
@@ -277,7 +273,10 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     staff_id: selectedStaff!.id,
                     date: format(selectedDate!, 'yyyy-MM-dd'),
                     time: selectedTime,
-                    ...formData,
+                    client_name: formData.client_name.trim(),
+                    client_phone: formData.client_phone.trim(),
+                    client_email: formData.client_email.trim() || null,
+                    notes: formData.notes.trim() || null,
                 }),
             })
 

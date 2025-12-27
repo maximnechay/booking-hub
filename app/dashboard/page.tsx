@@ -15,7 +15,7 @@ export default async function DashboardPage() {
 
     const { data: userData } = await supabase
         .from('users')
-        .select('tenant_id')
+        .select('tenant_id, tenant:tenants(timezone)')
         .eq('id', user.id)
         .single()
 
@@ -24,6 +24,48 @@ export default async function DashboardPage() {
     }
 
     const tenantId = userData.tenant_id
+    const timezone = userData.tenant?.timezone || 'Europe/Berlin'
+
+    const getDateParts = (date: Date) => {
+        const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone: timezone,
+            year: 'numeric',
+            month: '2-digit',
+            day: '2-digit',
+        }).formatToParts(date)
+        const partMap = new Map(parts.map(part => [part.type, part.value]))
+        return {
+            year: Number(partMap.get('year')),
+            month: Number(partMap.get('month')),
+            day: Number(partMap.get('day')),
+        }
+    }
+
+    const getOffsetString = (date: Date) => {
+        const parts = new Intl.DateTimeFormat('en-US', {
+            timeZone: timezone,
+            timeZoneName: 'shortOffset',
+        }).formatToParts(date)
+        const tz = parts.find(part => part.type === 'timeZoneName')?.value || 'GMT+0'
+        const match = tz.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/)
+        if (!match) return '+00:00'
+        const sign = match[1]
+        const hours = match[2].padStart(2, '0')
+        const minutes = (match[3] || '00').padStart(2, '0')
+        return `${sign}${hours}:${minutes}`
+    }
+
+    const buildRange = (start: Date, days: number) => {
+        const startParts = getDateParts(start)
+        const startUtc = new Date(Date.UTC(startParts.year, startParts.month - 1, startParts.day))
+        const endUtc = new Date(startUtc.getTime() + days * 86400000)
+        const endParts = getDateParts(endUtc)
+        const offsetStart = getOffsetString(startUtc)
+        const offsetEnd = getOffsetString(endUtc)
+        const startIso = `${startParts.year}-${String(startParts.month).padStart(2, '0')}-${String(startParts.day).padStart(2, '0')}T00:00:00${offsetStart}`
+        const endIso = `${endParts.year}-${String(endParts.month).padStart(2, '0')}-${String(endParts.day).padStart(2, '0')}T00:00:00${offsetEnd}`
+        return { startIso, endIso }
+    }
 
     // Статистика
     const { count: servicesCount } = await supabase
@@ -41,8 +83,28 @@ export default async function DashboardPage() {
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
 
+    const { startIso: todayStart, endIso: todayEnd } = buildRange(new Date(), 1)
+    const { startIso: weekStart, endIso: weekEnd } = buildRange(new Date(), 7)
+
+    const { count: todayCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .gte('start_time', todayStart)
+        .lt('start_time', todayEnd)
+
+    const { count: upcomingCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .in('status', ['pending', 'confirmed'])
+        .gte('start_time', weekStart)
+        .lt('start_time', weekEnd)
+
     const stats = [
-        { name: 'Termine heute', value: bookingsCount || 0, icon: Calendar, color: 'bg-blue-100 text-blue-600' },
+        { name: 'Termine heute', value: todayCount || 0, icon: Calendar, color: 'bg-blue-100 text-blue-600' },
+        { name: 'Termine 7 Tage', value: upcomingCount || 0, icon: Calendar, color: 'bg-indigo-100 text-indigo-600' },
+        { name: 'Gesamt Termine', value: bookingsCount || 0, icon: Calendar, color: 'bg-amber-100 text-amber-600' },
         { name: 'Dienstleistungen', value: servicesCount || 0, icon: Scissors, color: 'bg-purple-100 text-purple-600' },
         { name: 'Mitarbeiter', value: staffCount || 0, icon: Users, color: 'bg-green-100 text-green-600' },
     ]
