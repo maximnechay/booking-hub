@@ -333,6 +333,19 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     // Получаем услуги для отображения
     const getVisibleServices = (): Service[] => {
         if (!selectedCategory) {
+            // If a subcategory is selected while "Alle" is active
+            if (expandedSubCategory) {
+                // Find the subcategory across all categories
+                for (const cat of categories) {
+                    const subCat = cat.children.find(s => s.id === expandedSubCategory)
+                    if (subCat) {
+                        return subCat.services
+                    }
+                }
+                return []
+            }
+
+            // Show all services
             const allServices: Service[] = [...uncategorizedServices]
             categories.forEach(cat => {
                 allServices.push(...cat.services)
@@ -501,11 +514,43 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         )}
 
                         <div className="flex gap-6">
-                            {/* Subcategories Sidebar */}
-                            {currentCategory && currentCategory.children.length > 0 && (
-                                <div className="w-64 flex-shrink-0">
-                                    <div className="bg-white border rounded-lg overflow-hidden">
-                                        {currentCategory.children.map(sub => (
+                            {/* Subcategories Sidebar - Always visible */}
+                            <div className="w-64 flex-shrink-0">
+                                <div className="bg-white border rounded-lg overflow-hidden">
+                                    {!selectedCategory ? (
+                                        // Show all subcategories from all categories when "Alle" is selected
+                                        categories.flatMap(cat => cat.children).length > 0 ? (
+                                            <>
+                                                <button
+                                                    onClick={() => setExpandedSubCategory(null)}
+                                                    className={`w-full px-4 py-3 text-left flex items-center justify-between border-b transition-all ${!expandedSubCategory ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                        }`}
+                                                >
+                                                    <span className="text-sm font-medium text-gray-700">Alle Dienstleistungen</span>
+                                                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${!expandedSubCategory ? 'rotate-90' : ''
+                                                        }`} />
+                                                </button>
+                                                {categories.flatMap(cat => cat.children).map(sub => (
+                                                    <button
+                                                        key={sub.id}
+                                                        onClick={() => setExpandedSubCategory(expandedSubCategory === sub.id ? null : sub.id)}
+                                                        className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                            }`}
+                                                    >
+                                                        <span className="text-sm font-medium text-gray-700">{sub.name}</span>
+                                                        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expandedSubCategory === sub.id ? 'rotate-90' : ''
+                                                            }`} />
+                                                    </button>
+                                                ))}
+                                            </>
+                                        ) : (
+                                            <div className="px-4 py-8 text-center">
+                                                <p className="text-sm text-gray-400">Keine Unterkategorien</p>
+                                            </div>
+                                        )
+                                    ) : currentCategory && currentCategory.children.length > 0 ? (
+                                        // Show subcategories when a category is selected
+                                        currentCategory.children.map(sub => (
                                             <button
                                                 key={sub.id}
                                                 onClick={() => setExpandedSubCategory(expandedSubCategory === sub.id ? null : sub.id)}
@@ -516,10 +561,15 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                                 <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expandedSubCategory === sub.id ? 'rotate-90' : ''
                                                     }`} />
                                             </button>
-                                        ))}
-                                    </div>
+                                        ))
+                                    ) : (
+                                        // Show placeholder when category has no subcategories
+                                        <div className="px-4 py-8 text-center">
+                                            <p className="text-sm text-gray-400">Keine Unterkategorien</p>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </div>
 
                             {/* Services List */}
                             <div className="flex-1 space-y-3">
