@@ -147,7 +147,10 @@ export default function CategoriesPage() {
     }
 
     // Получаем все root категории для выбора parent
-    const rootCategories = categories.filter(c => !c.parent_id)
+    // Исключаем текущую редактируемую категорию, чтобы предотвратить self-reference
+    const rootCategories = categories.filter(c =>
+        !c.parent_id && (!editingCategory || c.id !== editingCategory.id)
+    )
 
     return (
         <div>
