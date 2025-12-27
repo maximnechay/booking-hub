@@ -2,7 +2,7 @@
 
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -10,11 +10,18 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { ArrowLeft } from 'lucide-react'
 
+interface Category {
+    id: string
+    name: string
+    children?: Category[]
+}
+
 export default function NewServicePage() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
+    const [categories, setCategories] = useState<Category[]>([])
     const [formData, setFormData] = useState({
         name: '',
         description: '',
@@ -23,7 +30,24 @@ export default function NewServicePage() {
         buffer_after: 0,
         is_active: true,
         online_booking_enabled: true,
+        category_id: '',
     })
+
+    // Загрузка категорий
+    useEffect(() => {
+        async function loadCategories() {
+            try {
+                const res = await fetch('/api/categories')
+                const data = await res.json()
+                if (data.categories) {
+                    setCategories(data.categories)
+                }
+            } catch (err) {
+                console.error('Failed to load categories:', err)
+            }
+        }
+        loadCategories()
+    }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -46,6 +70,7 @@ export default function NewServicePage() {
                     buffer_after: formData.buffer_after,
                     is_active: formData.is_active,
                     online_booking_enabled: formData.online_booking_enabled,
+                    category_id: formData.category_id || null,
                 }),
             })
 
@@ -102,6 +127,30 @@ export default function NewServicePage() {
                         {fieldErrors.name && (
                             <p className="text-sm text-red-600">{fieldErrors.name[0]}</p>
                         )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="category_id">Kategorie</Label>
+                        <select
+                            id="category_id"
+                            value={formData.category_id}
+                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                            disabled={isLoading}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            <option value="">— Keine Kategorie —</option>
+                            {categories.map(cat => (
+                                <optgroup key={cat.id} label={cat.name}>
+                                    {cat.children && cat.children.length > 0 ? (
+                                        cat.children.map(child => (
+                                            <option key={child.id} value={child.id}>{child.name}</option>
+                                        ))
+                                    ) : (
+                                        <option value={cat.id}>{cat.name}</option>
+                                    )}
+                                </optgroup>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="space-y-2">

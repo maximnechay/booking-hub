@@ -60,6 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 }
 
 // PUT /api/staff/[id]/schedule — обновить всё расписание
+// PUT /api/staff/[id]/schedule — обновить всё расписание
 export async function PUT(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params
@@ -97,16 +98,31 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
 
         const body = await request.json()
+
+        // DEBUG
+        console.log('=== SCHEDULE DEBUG ===')
+        console.log('Body received:', JSON.stringify(body, null, 2))
+
         const validationResult = updateStaffScheduleSchema.safeParse(body)
 
         if (!validationResult.success) {
+            // DEBUG
+            console.log('Validation FAILED:')
+            console.log('Errors:', JSON.stringify(validationResult.error.flatten(), null, 2))
+
             return NextResponse.json({
                 error: 'Validation failed',
                 details: validationResult.error.flatten()
             }, { status: 400 })
         }
 
+        // DEBUG
+        console.log('Validation PASSED')
+        console.log('Parsed data:', JSON.stringify(validationResult.data, null, 2))
+
         const scheduleData = validationResult.data
+
+
 
         // Удаляем старое расписание
         await supabase
