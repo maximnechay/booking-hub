@@ -9,6 +9,7 @@ import {
     Scissors,
     Users,
     Clock,
+    CalendarOff,
     Code,
     Settings,
     FolderTree,
@@ -21,7 +22,8 @@ const navigation = [
     { name: 'Kategorien', href: '/dashboard/categories', icon: FolderTree },
     { name: 'Dienstleistungen', href: '/dashboard/services', icon: Scissors },
     { name: 'Mitarbeiter', href: '/dashboard/staff', icon: Users },
-    { name: 'Öffnungszeiten', href: '/dashboard/schedule', icon: Clock },
+    { name: 'Öffnungszeiten', href: '/dashboard/oeffnungszeiten', icon: Clock },
+    { name: 'Schließtage', href: '/dashboard/schedule', icon: CalendarOff },
     { name: 'Integration', href: '/dashboard/integration', icon: Code },
     { name: 'Einstellungen', href: '/dashboard/settings', icon: Settings },
 ]
