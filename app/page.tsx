@@ -1,4 +1,7 @@
+// app/page.tsx
+
 import WidgetPreview from '@/components/bookinghub/widget-preview'
+import WidgetPopup from '@/components/bookinghub/widget-popup'
 
 export default function Home() {
   return (
@@ -9,17 +12,9 @@ export default function Home() {
           <p className="text-sm text-gray-500">Inline Einbettung auf der Startseite</p>
         </header>
         <WidgetPreview slug="kristina" />
-
       </main>
-      <script
-        src="http://localhost:3000/widget.js"
-        data-bookinghub
-        data-slug="kristina"
-        data-mode="popup"
-        data-button-text="Termin buchen"
-        data-height="90vh">
-      </script>
 
+      <WidgetPopup slug="kristina" buttonText="Termin buchen" />
     </div>
-  );
+  )
 }
