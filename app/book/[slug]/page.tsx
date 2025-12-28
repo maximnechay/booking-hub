@@ -1,5 +1,5 @@
 // app/book/[slug]/page.tsx
-// ОБНОВЛЁННАЯ ВЕРСИЯ с reserve-slot + complete-booking flow
+// ОБНОВЛЁННАЯ ВЕРСИЯ с slot_holds flow
 
 'use client'
 
@@ -61,7 +61,6 @@ interface Staff {
 
 interface BookingResult {
     id: string
-    confirmation_code: string
     start_time: string
 }
 
@@ -109,8 +108,9 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         notes: '',
     })
 
-    // НОВОЕ: Reservation flow
-    const [reservationId, setReservationId] = useState<string | null>(null)
+    // ИЗМЕНЕНО: Hold flow вместо reservation
+    const [holdId, setHoldId] = useState<string | null>(null)
+    const [sessionToken, setSessionToken] = useState<string | null>(null)
     const [expiresAt, setExpiresAt] = useState<Date | null>(null)
     const [timeRemaining, setTimeRemaining] = useState<number>(0)
 
@@ -221,7 +221,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         loadSlots()
     }, [slug, selectedService, selectedStaff, selectedDate])
 
-    // НОВОЕ: Таймер для резервации
+    // Таймер для hold
     useEffect(() => {
         if (!expiresAt) return
 
@@ -235,13 +235,15 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             if (remaining === 0) {
                 setError('Die Reservierung ist abgelaufen. Bitte wählen Sie erneut.')
                 setStep('datetime')
-                setReservationId(null)
+                setHoldId(null)
+                setSessionToken(null)
                 setExpiresAt(null)
             }
         }, 1000)
 
         return () => clearInterval(interval)
     }, [expiresAt])
+
     useEffect(() => {
         if (selectedTime && confirmButtonRef.current) {
             setTimeout(() => {
@@ -252,6 +254,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             }, 100)
         }
     }, [selectedTime])
+
     const handleServiceClick = (service: Service) => {
         if (service.variants && service.variants.length > 0) {
             setSelectedService(service)
@@ -293,6 +296,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         setSelectedTime(time)
         setError(null)
     }
+
+    // ИЗМЕНЕНО: Создаёт hold вместо reservation
     const handleContinueToForm = async () => {
         if (!selectedTime) return
 
@@ -320,11 +325,14 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 return
             }
 
-            const expiresDate = new Date(data.reservation.expires_at)
-            setReservationId(data.reservation.id)
+            // ИЗМЕНЕНО: Сохраняем hold_id и session_token
+            setHoldId(data.hold.id)
+            setSessionToken(data.hold.session_token)
+
+            const expiresDate = new Date(data.hold.expires_at)
             setExpiresAt(expiresDate)
 
-            // Установить начальное значение таймера СРАЗУ
+            // Установить начальное значение таймера
             const expires = expiresDate.getTime()
             const now = new Date().getTime()
             const remaining = Math.max(0, Math.floor((expires - now) / 1000))
@@ -337,14 +345,16 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             setIsLoading(false)
         }
     }
-    // ИЗМЕНЕНО: Теперь подтверждает резервацию
+
+    // ИЗМЕНЕНО: Подтверждает hold и создаёт booking
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsLoading(true)
         setError(null)
 
-        if (!reservationId) {
+        if (!holdId || !sessionToken) {
             setError('Keine gültige Reservierung')
+            setIsLoading(false)
             return
         }
 
@@ -353,7 +363,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    reservation_id: reservationId,
+                    hold_id: holdId,
+                    session_token: sessionToken,
                     client_name: formData.client_name.trim(),
                     client_phone: formData.client_phone.trim(),
                     client_email: formData.client_email.trim() || null,
@@ -364,10 +375,11 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             const data = await res.json()
 
             if (!res.ok) {
-                if (data.error === 'RESERVATION_EXPIRED') {
+                if (data.error === 'HOLD_EXPIRED') {
                     setError('Die Reservierung ist abgelaufen. Bitte wählen Sie erneut.')
                     setStep('datetime')
-                    setReservationId(null)
+                    setHoldId(null)
+                    setSessionToken(null)
                     setExpiresAt(null)
                     return
                 }
@@ -377,7 +389,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
 
             setBooking({
                 id: data.booking.id,
-                confirmation_code: reservationId,
                 start_time: data.booking.start_time,
             })
             setStep('success')
@@ -391,7 +402,13 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     const goBack = () => {
         if (step === 'staff') setStep('service')
         else if (step === 'datetime') setStep('staff')
-        else if (step === 'form') setStep('datetime')
+        else if (step === 'form') {
+            // Сбрасываем hold при возврате
+            setHoldId(null)
+            setSessionToken(null)
+            setExpiresAt(null)
+            setStep('datetime')
+        }
     }
 
     const formatPrice = (cents: number) => {
@@ -412,7 +429,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         return format(date, "EEEE, d. MMMM yyyy", { locale: de })
     }
 
-    // НОВОЕ: Форматирование времени таймера
     const formatTimeRemaining = (seconds: number) => {
         const minutes = Math.floor(seconds / 60)
         const secs = seconds % 60
