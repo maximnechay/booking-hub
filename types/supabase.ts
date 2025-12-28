@@ -327,6 +327,74 @@ export type Database = {
           },
         ]
       }
+      slot_holds: {
+        Row: {
+          created_at: string | null
+          end_time: string
+          expires_at: string
+          id: string
+          service_id: string
+          session_token: string
+          staff_id: string
+          start_time: string
+          tenant_id: string
+          variant_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: string
+          expires_at: string
+          id?: string
+          service_id: string
+          session_token: string
+          staff_id: string
+          start_time: string
+          tenant_id: string
+          variant_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: string
+          expires_at?: string
+          id?: string
+          service_id?: string
+          session_token?: string
+          staff_id?: string
+          start_time?: string
+          tenant_id?: string
+          variant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_holds_service_id_fkey"
+            columns: ["service_id"]
+            isOneToOne: false
+            referencedRelation: "services"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_holds_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_holds_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_holds_variant_id_fkey"
+            columns: ["variant_id"]
+            isOneToOne: false
+            referencedRelation: "service_variants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       staff: {
         Row: {
           avatar_url: string | null
@@ -643,6 +711,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_holds: { Args: never; Returns: number }
       cleanup_expired_pending: {
         Args: never
         Returns: {
