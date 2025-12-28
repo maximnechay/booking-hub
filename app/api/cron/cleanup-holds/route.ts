@@ -1,6 +1,4 @@
-// app/api/cron/cleanup-pending/route.ts
-// Vercel Cron Job — запускается каждые 5 минут
-// Отменяет pending брони у которых истёк expires_at
+// app/api/cron/cleanup-holds/route.ts
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
@@ -15,25 +13,27 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        console.log('[CRON] Starting cleanup_expired_pending...')
+        console.log('[CRON] Starting holds cleanup...')
 
-        // Вызываем функцию cleanup
-        const { data, error } = await supabaseAdmin.rpc('cleanup_expired_pending')
+        // Удаляем просроченные holds
+        const { data, error } = await supabaseAdmin
+            .from('slot_holds')
+            .delete()
+            .lt('expires_at', new Date().toISOString())
+            .select('id')
 
         if (error) {
             console.error('[CRON] Cleanup error:', error)
             throw error
         }
 
-        // Функция возвращает массив с одним элементом { cancelled_count: N }
-        const result = data && data.length > 0 ? data[0] : { cancelled_count: 0 }
-        const cancelledCount = result.cancelled_count || 0
+        const deletedCount = data?.length || 0
 
-        console.log(`[CRON] Cleanup completed. Cancelled ${cancelledCount} bookings.`)
+        console.log(`[CRON] Cleanup completed. Deleted ${deletedCount} expired holds.`)
 
         return NextResponse.json({
             success: true,
-            cancelled: cancelledCount,
+            deleted: deletedCount,
             timestamp: new Date().toISOString()
         })
 
@@ -46,7 +46,6 @@ export async function GET(request: NextRequest) {
     }
 }
 
-// Также поддерживаем POST (для тестирования вручную)
 export async function POST(request: NextRequest) {
     return GET(request)
 }
