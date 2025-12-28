@@ -32,7 +32,7 @@
     wrapper.className = 'bookinghub-widget';
     wrapper.style.width = '100%';
 
-    var iframe = createIframe(baseUrl + '/widget/' + slug, height);
+    var iframe = createIframe(baseUrl + '/book/' + slug, height);
     wrapper.appendChild(iframe);
 
     if (target) {
@@ -102,7 +102,7 @@
     closeBtn.style.fontSize = '20px';
     closeBtn.style.lineHeight = '1';
 
-    var iframe = createIframe(baseUrl + '/widget/' + slug, '100%');
+    var iframe = createIframe(baseUrl + '/book/' + slug, '100%');
     iframe.style.flex = '1';
 
     modal.appendChild(closeBtn);
