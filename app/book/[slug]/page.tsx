@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect, use } from 'react'
+import { useState, useEffect, use, useRef } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { format, addDays, startOfDay } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -100,6 +100,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined)
     const [selectedTime, setSelectedTime] = useState('')
     const [booking, setBooking] = useState<BookingResult | null>(null)
+    const confirmButtonRef = useRef<HTMLDivElement>(null)
 
     const [formData, setFormData] = useState({
         client_name: '',
@@ -241,7 +242,16 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
 
         return () => clearInterval(interval)
     }, [expiresAt])
-
+    useEffect(() => {
+        if (selectedTime && confirmButtonRef.current) {
+            setTimeout(() => {
+                confirmButtonRef.current?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'nearest'
+                })
+            }, 100)
+        }
+    }, [selectedTime])
     const handleServiceClick = (service: Service) => {
         if (service.variants && service.variants.length > 0) {
             setSelectedService(service)
@@ -279,9 +289,13 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         setSelectedTime('')
     }
 
-    // ИЗМЕНЕНО: Теперь резервирует слот
-    const handleTimeSelect = async (time: string) => {
+    const handleTimeSelect = (time: string) => {
         setSelectedTime(time)
+        setError(null)
+    }
+    const handleContinueToForm = async () => {
+        if (!selectedTime) return
+
         setIsLoading(true)
         setError(null)
 
@@ -294,7 +308,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     variant_id: selectedVariant?.id || null,
                     staff_id: selectedStaff!.id,
                     date: format(selectedDate!, 'yyyy-MM-dd'),
-                    time: time,
+                    time: selectedTime,
                 }),
             })
 
@@ -302,11 +316,20 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
 
             if (!res.ok) {
                 setError(data.message || 'Reservierung fehlgeschlagen')
+                setIsLoading(false)
                 return
             }
 
+            const expiresDate = new Date(data.reservation.expires_at)
             setReservationId(data.reservation.id)
-            setExpiresAt(new Date(data.reservation.expires_at))
+            setExpiresAt(expiresDate)
+
+            // Установить начальное значение таймера СРАЗУ
+            const expires = expiresDate.getTime()
+            const now = new Date().getTime()
+            const remaining = Math.max(0, Math.floor((expires - now) / 1000))
+            setTimeRemaining(remaining)
+
             setStep('form')
         } catch (err) {
             setError('Ein Fehler ist aufgetreten')
@@ -314,7 +337,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             setIsLoading(false)
         }
     }
-
     // ИЗМЕНЕНО: Теперь подтверждает резервацию
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -676,6 +698,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                     <p className="text-gray-500 text-center py-8">Keine Services in dieser Kategorie</p>
                                 )}
                             </div>
+
                         </div>
                     </div>
                 )}
@@ -791,7 +814,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                                     ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
                                                     : 'hover:border-blue-300 hover:bg-blue-50'
                                                     }`}
-                                                disabled={isLoading}
                                             >
                                                 {time}
                                             </button>
@@ -802,6 +824,47 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                         Keine Termine an diesem Tag verfügbar
                                     </p>
                                 )}
+
+                            </div>
+
+                        )}
+
+                        {/* Кнопка подтверждения времени */}
+                        {selectedTime && (
+                            <div className="mt-6 pt-6 border-t" ref={confirmButtonRef}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <div>
+                                        <p className="text-sm text-gray-500">Ausgewählte Zeit</p>
+                                        <p className="text-lg font-semibold text-gray-900">{selectedTime} Uhr</p>
+                                    </div>
+                                    <button
+                                        onClick={() => setSelectedTime('')}
+                                        className="text-sm text-gray-500 hover:text-gray-700 underline"
+                                    >
+                                        Ändern
+                                    </button>
+                                </div>
+
+                                {error && (
+                                    <div className="mb-4 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                                        {error}
+                                    </div>
+                                )}
+
+                                <Button
+                                    onClick={handleContinueToForm}
+                                    className="w-full"
+                                    disabled={isLoading}
+                                >
+                                    {isLoading ? (
+                                        <>
+                                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                            Zeitslot wird reserviert...
+                                        </>
+                                    ) : (
+                                        'Weiter zur Buchung'
+                                    )}
+                                </Button>
                             </div>
                         )}
                     </div>
@@ -810,35 +873,18 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 {/* Step 4: Contact Form */}
                 {step === 'form' && (
                     <div className="max-w-2xl">
-                        {/* НОВОЕ: Таймер резервации */}
-                        {timeRemaining > 0 && (
-                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="font-medium text-orange-900">Zeitslot reserviert</p>
-                                        <p className="text-sm text-orange-700">
-                                            Bitte bestätigen Sie Ihre Buchung
-                                        </p>
-                                    </div>
-                                    <div className="text-right">
-                                        <p className="text-3xl font-mono font-bold text-orange-600">
-                                            {formatTimeRemaining(timeRemaining)}
-                                        </p>
-                                        <p className="text-xs text-orange-600">verbleibend</p>
-                                    </div>
+                        {/* Компактный таймер */}
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-lg font-semibold">Ihre Daten</h2>
+                            {timeRemaining > 0 && (
+                                <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 border border-orange-300 rounded-full">
+                                    <Clock className="h-3.5 w-3.5 text-orange-600" />
+                                    <span className="text-sm font-mono font-semibold text-orange-700">
+                                        {formatTimeRemaining(timeRemaining)}
+                                    </span>
                                 </div>
-                                <div className="mt-3">
-                                    <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
-                                        <div
-                                            className="h-full bg-orange-500 transition-all duration-1000"
-                                            style={{ width: `${(timeRemaining / (15 * 60)) * 100}%` }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <h2 className="text-lg font-semibold mb-4">Ihre Daten</h2>
+                            )}
+                        </div>
 
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
                             <p className="font-medium text-gray-900">{getServiceName()}</p>
@@ -849,6 +895,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             <p className="font-semibold text-gray-900 mt-2">
                                 {formatPrice(getPrice())}
                             </p>
+
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-4">
