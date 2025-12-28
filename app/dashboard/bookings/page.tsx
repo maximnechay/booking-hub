@@ -2,6 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { Eye } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show'
+
+const validStatuses: BookingStatus[] = ['pending', 'confirmed', 'cancelled', 'completed', 'no_show']
 
 const statusStyles: Record<string, string> = {
     pending: 'bg-amber-100 text-amber-800',
@@ -13,7 +20,7 @@ const statusStyles: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
     pending: 'Ausstehend',
-    confirmed: 'Bestatigt',
+    confirmed: 'Bestätigt',
     cancelled: 'Storniert',
     completed: 'Abgeschlossen',
     no_show: 'Nicht erschienen',
@@ -93,9 +100,10 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             service:services!inner(id, name, category_id, category:service_categories(id, name))
         `)
         .eq('tenant_id', userData.tenant_id)
+        .neq('client_name', 'RESERVED') // Скрываем незавершённые резервации
 
-    if (statusParam !== 'all') {
-        query = query.eq('status', statusParam)
+    if (statusParam !== 'all' && validStatuses.includes(statusParam as BookingStatus)) {
+        query = query.eq('status', statusParam as BookingStatus)
     }
 
     if (staffParam) {
@@ -144,6 +152,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                 <h1 className="text-2xl font-bold text-gray-900">Termine</h1>
             </div>
 
+            {/* Filters */}
             <div className="bg-white rounded-lg shadow p-4 mb-6">
                 <form method="get" className="flex flex-col gap-4 md:flex-row md:items-end">
                     <div className="flex-1 min-w-[160px] space-y-1">
@@ -155,39 +164,46 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                         >
                             <option value="all">Alle</option>
                             <option value="pending">Ausstehend</option>
-                            <option value="confirmed">Bestatigt</option>
+                            <option value="confirmed">Bestätigt</option>
                             <option value="completed">Abgeschlossen</option>
                             <option value="cancelled">Storniert</option>
                             <option value="no_show">Nicht erschienen</option>
                         </select>
                     </div>
-                    <div className="flex-1 min-w-[160px] space-y-1">
-                        <label className="text-xs text-gray-500">Mitarbeiter</label>
-                        <select
-                            name="staff"
-                            defaultValue={staffParam}
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                            <option value="">Alle</option>
-                            {staff?.map((member) => (
-                                <option key={member.id} value={member.id}>{member.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex-1 min-w-[160px] space-y-1">
-                        <label className="text-xs text-gray-500">Kategorie</label>
-                        <select
-                            name="category"
-                            defaultValue={categoryParam}
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                            <option value="">Alle</option>
-                            {categories?.map((category) => (
-                                <option key={category.id} value={category.id}>{category.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex-1 min-w-[160px] space-y-1">
+
+                    {staff && staff.length > 0 && (
+                        <div className="flex-1 min-w-[160px] space-y-1">
+                            <label className="text-xs text-gray-500">Mitarbeiter</label>
+                            <select
+                                name="staff"
+                                defaultValue={staffParam}
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                                <option value="">Alle</option>
+                                {staff.map((s) => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    {categories && categories.length > 0 && (
+                        <div className="flex-1 min-w-[160px] space-y-1">
+                            <label className="text-xs text-gray-500">Kategorie</label>
+                            <select
+                                name="category"
+                                defaultValue={categoryParam}
+                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                                <option value="">Alle</option>
+                                {categories.map((c) => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+
+                    <div className="flex-1 min-w-[140px] space-y-1">
                         <label className="text-xs text-gray-500">Von</label>
                         <input
                             type="date"
@@ -196,7 +212,8 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                             className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
                     </div>
-                    <div className="flex-1 min-w-[160px] space-y-1">
+
+                    <div className="flex-1 min-w-[140px] space-y-1">
                         <label className="text-xs text-gray-500">Bis</label>
                         <input
                             type="date"
@@ -205,105 +222,88 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                             className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
                     </div>
-                    <label className="flex items-center gap-2 text-sm text-gray-600">
+
+                    <div className="flex items-center gap-2">
                         <input
                             type="checkbox"
                             name="upcoming"
+                            id="upcoming"
                             value="1"
                             defaultChecked={upcomingOnly}
-                            className="h-4 w-4 rounded border-gray-300"
+                            className="h-4 w-4"
                         />
-                        Nur zukunftige
-                    </label>
-                    <div className="flex items-center gap-2">
-                        <button
-                            type="submit"
-                            className="h-10 rounded-md bg-gray-900 text-white px-4 text-sm"
-                        >
-                            Anwenden
-                        </button>
-                        <a
-                            href="/dashboard/bookings"
-                            className="h-10 rounded-md border border-gray-200 px-4 text-sm flex items-center text-gray-700"
-                        >
-                            Reset
-                        </a>
+                        <label htmlFor="upcoming" className="text-sm text-gray-600">
+                            Nur zukünftige
+                        </label>
                     </div>
+
+                    <Button type="submit" variant="outline">
+                        Filtern
+                    </Button>
                 </form>
             </div>
 
+            {/* Table */}
             {bookings && bookings.length > 0 ? (
                 <>
-                    <div className="space-y-4 md:hidden">
-                        {bookings.map((booking) => (
-                            <div key={booking.id} className="bg-white rounded-lg shadow p-4">
-                                <div className="flex items-start justify-between gap-4">
-                                    <div>
-                                        <p className="font-medium text-gray-900">{booking.client_name}</p>
-                                        <p className="text-sm text-gray-500">{formatDateTime(booking.start_time)}</p>
-                                    </div>
-                                    <span className={`inline-flex px-2 py-0.5 text-xs font-medium rounded-full ${statusStyles[booking.status] || 'bg-gray-100 text-gray-800'}`}>
-                                        {statusLabels[booking.status] || booking.status}
-                                    </span>
-                                </div>
-                                <div className="mt-3 text-sm text-gray-600 space-y-1">
-                                    <p>{booking.service?.name || '-'}</p>
-                                    <p>{booking.staff?.name || '-'}</p>
-                                    <p>{formatDuration(booking.duration_at_booking)} · {formatPrice(booking.price_at_booking)}</p>
-                                </div>
-                                <div className="mt-3 text-sm text-gray-500 space-y-1">
-                                    {booking.client_phone && <p>{booking.client_phone}</p>}
-                                    {booking.client_email && <p>{booking.client_email}</p>}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                    <div className="hidden md:block bg-white rounded-lg shadow overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kunde</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mitarbeiter</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dauer</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preis</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {bookings.map((booking) => (
-                                    <tr key={booking.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 text-sm text-gray-900">
-                                            {formatDateTime(booking.start_time)}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <p className="font-medium text-gray-900">{booking.client_name}</p>
-                                            <p className="text-sm text-gray-500">
-                                                {booking.client_phone || booking.client_email || '-'}
-                                            </p>
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">
-                                            {booking.service?.name || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">
-                                            {booking.staff?.name || '-'}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {formatDuration(booking.duration_at_booking)}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-900">
-                                            {formatPrice(booking.price_at_booking)}
-                                        </td>
-                                        <td className="px-6 py-4">
-                                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusStyles[booking.status] || 'bg-gray-100 text-gray-800'}`}>
-                                                {statusLabels[booking.status] || booking.status}
-                                            </span>
-                                        </td>
+                    <p className="text-sm text-gray-500 mb-4">{bookings.length} Termine gefunden</p>
+                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                    <tr>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Datum</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kunde</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Service</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Mitarbeiter</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dauer</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Preis</th>
+                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aktion</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                    {bookings.map((booking) => (
+                                        <tr key={booking.id} className="hover:bg-gray-50">
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {formatDateTime(booking.start_time)}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <p className="font-medium text-gray-900">{booking.client_name}</p>
+                                                <p className="text-sm text-gray-500">
+                                                    {booking.client_phone || booking.client_email || '-'}
+                                                </p>
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {booking.service?.name || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {booking.staff?.name || '-'}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-500">
+                                                {formatDuration(booking.duration_at_booking)}
+                                            </td>
+                                            <td className="px-6 py-4 text-sm text-gray-900">
+                                                {formatPrice(booking.price_at_booking)}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${statusStyles[booking.status] || 'bg-gray-100 text-gray-800'}`}>
+                                                    {statusLabels[booking.status] || booking.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right">
+                                                <Link href={`/dashboard/bookings/${booking.id}`}>
+                                                    <Button variant="ghost" size="sm">
+                                                        <Eye className="h-4 w-4 mr-1" />
+                                                        Details
+                                                    </Button>
+                                                </Link>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </>
             ) : (
