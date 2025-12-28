@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
+import { sendBookingConfirmation } from '@/lib/email/send-booking-confirmation'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -13,7 +14,7 @@ const completeSchema = z.object({
     session_token: z.string().min(1),
     client_name: z.string().min(2).max(100),
     client_phone: z.string().min(5).max(50),
-    client_email: z.string().email().nullable().optional(),
+    client_email: z.string().email(),
     notes: z.string().max(500).nullable().optional(),
 })
 
@@ -33,10 +34,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         const data = validationResult.data
 
-        // Получаем tenant
+        // Получаем tenant с данными для email
         const { data: tenant } = await supabaseAdmin
             .from('tenants')
-            .select('id')
+            .select('id, name, address, phone')
             .eq('slug', slug)
             .eq('is_active', true)
             .single()
@@ -63,7 +64,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Проверяем не истёк ли hold
         if (new Date(hold.expires_at) < new Date()) {
-            // Удаляем просроченный hold
             await supabaseAdmin
                 .from('slot_holds')
                 .delete()
@@ -75,29 +75,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }, { status: 410 })
         }
 
-        // Получаем данные услуги для сохранения цены/длительности
+        // Получаем данные услуги
         const { data: service } = await supabaseAdmin
             .from('services')
-            .select('duration, price, buffer_after')
+            .select('name, duration, price, buffer_after')
             .eq('id', hold.service_id)
             .single()
 
         let duration = service?.duration || 60
         let price = service?.price || 0
+        let serviceName = service?.name || 'Service'
 
         // Если есть вариант
         if (hold.variant_id) {
             const { data: variant } = await supabaseAdmin
                 .from('service_variants')
-                .select('duration, price')
+                .select('name, duration, price')
                 .eq('id', hold.variant_id)
                 .single()
 
             if (variant) {
                 duration = variant.duration
                 price = variant.price
+                serviceName = `${serviceName} - ${variant.name}`
             }
         }
+
+        // Получаем имя мастера
+        const { data: staffMember } = await supabaseAdmin
+            .from('staff')
+            .select('name')
+            .eq('id', hold.staff_id)
+            .single()
 
         // Создаём реальный booking
         const { data: booking, error: bookingError } = await supabaseAdmin
@@ -124,9 +133,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         if (bookingError) {
             console.error('Booking creation error:', bookingError)
 
-            // Если конфликт — слот уже занят
             if (bookingError.code === '23P01') {
-                // Удаляем hold
                 await supabaseAdmin
                     .from('slot_holds')
                     .delete()
@@ -144,11 +151,33 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             }, { status: 500 })
         }
 
-        // Удаляем hold — он больше не нужен
+        // Удаляем hold
         await supabaseAdmin
             .from('slot_holds')
             .delete()
             .eq('id', hold.id)
+
+        // Отправляем email (async, не блокируем ответ)
+        if (data.client_email) {
+            sendBookingConfirmation({
+                clientName: data.client_name,
+                clientEmail: data.client_email,
+                salonName: tenant.name,
+                serviceName: serviceName,
+                staffName: staffMember?.name || 'Mitarbeiter',
+                startTime: new Date(hold.start_time),
+                duration: duration,
+                price: price,
+                salonAddress: tenant.address || undefined,
+                salonPhone: tenant.phone || undefined,
+            }).then(result => {
+                if (result.success) {
+                    console.log(`📧 Confirmation email sent for booking ${booking.id}`)
+                } else {
+                    console.error(`📧 Failed to send email for booking ${booking.id}:`, result.error)
+                }
+            })
+        }
 
         return NextResponse.json({
             booking: {
