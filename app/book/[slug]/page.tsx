@@ -1,4 +1,5 @@
 // app/book/[slug]/page.tsx
+// ОБНОВЛЁННАЯ ВЕРСИЯ с reserve-slot + complete-booking flow
 
 'use client'
 
@@ -107,6 +108,11 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         notes: '',
     })
 
+    // НОВОЕ: Reservation flow
+    const [reservationId, setReservationId] = useState<string | null>(null)
+    const [expiresAt, setExpiresAt] = useState<Date | null>(null)
+    const [timeRemaining, setTimeRemaining] = useState<number>(0)
+
     // Загрузка tenant и services
     useEffect(() => {
         async function loadInitialData() {
@@ -214,13 +220,33 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         loadSlots()
     }, [slug, selectedService, selectedStaff, selectedDate])
 
+    // НОВОЕ: Таймер для резервации
+    useEffect(() => {
+        if (!expiresAt) return
+
+        const interval = setInterval(() => {
+            const now = new Date().getTime()
+            const expires = new Date(expiresAt).getTime()
+            const remaining = Math.max(0, Math.floor((expires - now) / 1000))
+
+            setTimeRemaining(remaining)
+
+            if (remaining === 0) {
+                setError('Die Reservierung ist abgelaufen. Bitte wählen Sie erneut.')
+                setStep('datetime')
+                setReservationId(null)
+                setExpiresAt(null)
+            }
+        }, 1000)
+
+        return () => clearInterval(interval)
+    }, [expiresAt])
+
     const handleServiceClick = (service: Service) => {
         if (service.variants && service.variants.length > 0) {
-            // Показываем модальное окно выбора варианта
             setSelectedService(service)
             setShowVariantModal(true)
         } else {
-            // Переходим к выбору мастера
             handleServiceSelect(service, null)
         }
     }
@@ -253,18 +279,14 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         setSelectedTime('')
     }
 
-    const handleTimeSelect = (time: string) => {
+    // ИЗМЕНЕНО: Теперь резервирует слот
+    const handleTimeSelect = async (time: string) => {
         setSelectedTime(time)
-        setStep('form')
-    }
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault()
         setIsLoading(true)
         setError(null)
 
         try {
-            const res = await fetch(`/api/widget/${slug}/book`, {
+            const res = await fetch(`/api/widget/${slug}/reserve-slot`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -272,7 +294,44 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     variant_id: selectedVariant?.id || null,
                     staff_id: selectedStaff!.id,
                     date: format(selectedDate!, 'yyyy-MM-dd'),
-                    time: selectedTime,
+                    time: time,
+                }),
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                setError(data.message || 'Reservierung fehlgeschlagen')
+                return
+            }
+
+            setReservationId(data.reservation.id)
+            setExpiresAt(new Date(data.reservation.expires_at))
+            setStep('form')
+        } catch (err) {
+            setError('Ein Fehler ist aufgetreten')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // ИЗМЕНЕНО: Теперь подтверждает резервацию
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setIsLoading(true)
+        setError(null)
+
+        if (!reservationId) {
+            setError('Keine gültige Reservierung')
+            return
+        }
+
+        try {
+            const res = await fetch(`/api/widget/${slug}/complete-booking`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    reservation_id: reservationId,
                     client_name: formData.client_name.trim(),
                     client_phone: formData.client_phone.trim(),
                     client_email: formData.client_email.trim() || null,
@@ -283,11 +342,22 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             const data = await res.json()
 
             if (!res.ok) {
-                setError(data.error || 'Buchung fehlgeschlagen')
+                if (data.error === 'RESERVATION_EXPIRED') {
+                    setError('Die Reservierung ist abgelaufen. Bitte wählen Sie erneut.')
+                    setStep('datetime')
+                    setReservationId(null)
+                    setExpiresAt(null)
+                    return
+                }
+                setError(data.message || 'Buchung fehlgeschlagen')
                 return
             }
 
-            setBooking(data.booking)
+            setBooking({
+                id: data.booking.id,
+                confirmation_code: reservationId,
+                start_time: data.booking.start_time,
+            })
             setStep('success')
         } catch (err) {
             setError('Ein Fehler ist aufgetreten')
@@ -320,7 +390,13 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         return format(date, "EEEE, d. MMMM yyyy", { locale: de })
     }
 
-    // Получаем цену/длительность (из варианта или услуги)
+    // НОВОЕ: Форматирование времени таймера
+    const formatTimeRemaining = (seconds: number) => {
+        const minutes = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${minutes}:${secs.toString().padStart(2, '0')}`
+    }
+
     const getPrice = () => selectedVariant?.price ?? selectedService?.price ?? 0
     const getDuration = () => selectedVariant?.duration ?? selectedService?.duration ?? 0
     const getServiceName = () => {
@@ -330,12 +406,9 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         return selectedService?.name || ''
     }
 
-    // Получаем услуги для отображения
     const getVisibleServices = (): Service[] => {
         if (!selectedCategory) {
-            // If a subcategory is selected while "Alle" is active
             if (expandedSubCategory) {
-                // Find the subcategory across all categories
                 for (const cat of categories) {
                     const subCat = cat.children.find(s => s.id === expandedSubCategory)
                     if (subCat) {
@@ -345,7 +418,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 return []
             }
 
-            // Show all services
             const allServices: Service[] = [...uncategorizedServices]
             categories.forEach(cat => {
                 allServices.push(...cat.services)
@@ -460,9 +532,9 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         {['service', 'staff', 'datetime', 'form'].map((s, i) => (
                             <div key={s} className="flex items-center">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${step === s ? 'bg-blue-600 text-white' :
-                                        ['service', 'staff', 'datetime', 'form'].indexOf(step) > i
-                                            ? 'bg-green-500 text-white'
-                                            : 'bg-gray-200 text-gray-500'
+                                    ['service', 'staff', 'datetime', 'form'].indexOf(step) > i
+                                        ? 'bg-green-500 text-white'
+                                        : 'bg-gray-200 text-gray-500'
                                     }`}>
                                     {['service', 'staff', 'datetime', 'form'].indexOf(step) > i ? '✓' : i + 1}
                                 </div>
@@ -514,11 +586,10 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         )}
 
                         <div className="flex gap-6">
-                            {/* Subcategories Sidebar - Always visible */}
+                            {/* Subcategories Sidebar */}
                             <div className="w-64 flex-shrink-0">
                                 <div className="bg-white border rounded-lg overflow-hidden">
                                     {!selectedCategory ? (
-                                        // Show all subcategories from all categories when "Alle" is selected
                                         categories.flatMap(cat => cat.children).length > 0 ? (
                                             <>
                                                 <button
@@ -549,7 +620,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                             </div>
                                         )
                                     ) : currentCategory && currentCategory.children.length > 0 ? (
-                                        // Show subcategories when a category is selected
                                         currentCategory.children.map(sub => (
                                             <button
                                                 key={sub.id}
@@ -563,7 +633,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                             </button>
                                         ))
                                     ) : (
-                                        // Show placeholder when category has no subcategories
                                         <div className="px-4 py-8 text-center">
                                             <p className="text-sm text-gray-400">Keine Unterkategorien</p>
                                         </div>
@@ -719,9 +788,10 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                                 key={time}
                                                 onClick={() => handleTimeSelect(time)}
                                                 className={`p-2 text-sm border rounded-lg transition-all ${selectedTime === time
-                                                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
-                                                        : 'hover:border-blue-300 hover:bg-blue-50'
+                                                    ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                                                    : 'hover:border-blue-300 hover:bg-blue-50'
                                                     }`}
+                                                disabled={isLoading}
                                             >
                                                 {time}
                                             </button>
@@ -740,6 +810,34 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 {/* Step 4: Contact Form */}
                 {step === 'form' && (
                     <div className="max-w-2xl">
+                        {/* НОВОЕ: Таймер резервации */}
+                        {timeRemaining > 0 && (
+                            <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="font-medium text-orange-900">Zeitslot reserviert</p>
+                                        <p className="text-sm text-orange-700">
+                                            Bitte bestätigen Sie Ihre Buchung
+                                        </p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-3xl font-mono font-bold text-orange-600">
+                                            {formatTimeRemaining(timeRemaining)}
+                                        </p>
+                                        <p className="text-xs text-orange-600">verbleibend</p>
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <div className="h-2 bg-orange-200 rounded-full overflow-hidden">
+                                        <div
+                                            className="h-full bg-orange-500 transition-all duration-1000"
+                                            style={{ width: `${(timeRemaining / (15 * 60)) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                         <h2 className="text-lg font-semibold mb-4">Ihre Daten</h2>
 
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -832,9 +930,9 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         </p>
 
                         <div className="bg-white border rounded-lg p-6 text-left">
-                            <p className="text-sm text-gray-500 mb-1">Bestätigungscode</p>
+                            <p className="text-sm text-gray-500 mb-1">Buchungs-ID</p>
                             <p className="text-2xl font-mono font-bold text-gray-900 mb-4">
-                                {booking.confirmation_code}
+                                {booking.id.slice(0, 8).toUpperCase()}
                             </p>
 
                             <div className="border-t pt-4 space-y-2">
@@ -856,7 +954,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         </div>
 
                         <p className="text-sm text-gray-500 mt-6">
-                            Bitte merken Sie sich den Bestätigungscode.
+                            Bitte merken Sie sich die Buchungs-ID.
                         </p>
                     </div>
                 )}
