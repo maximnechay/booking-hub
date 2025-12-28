@@ -945,11 +945,12 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="client_email">E-Mail (optional)</Label>
+                                <Label htmlFor="client_email">E-Mail*</Label>
+
                                 <Input
-                                    id="client_email"
                                     type="email"
-                                    placeholder="max@beispiel.de"
+                                    required
+                                    placeholder="erikamustermann@mail.de"
                                     value={formData.client_email}
                                     onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
                                 />
