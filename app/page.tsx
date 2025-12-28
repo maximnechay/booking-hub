@@ -9,7 +9,17 @@ export default function Home() {
           <p className="text-sm text-gray-500">Inline Einbettung auf der Startseite</p>
         </header>
         <WidgetPreview slug="kristina" />
+
       </main>
+      <script
+        src="http://localhost:3000/widget.js"
+        data-bookinghub
+        data-slug="kristina"
+        data-mode="popup"
+        data-button-text="Termin buchen"
+        data-height="90vh">
+      </script>
+
     </div>
   );
 }
