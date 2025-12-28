@@ -63,7 +63,6 @@ export type Database = {
           client_email: string | null
           client_name: string
           client_phone: string
-          confirmation_code_hash: string
           created_at: string | null
           duration_at_booking: number
           end_time: string
@@ -87,7 +86,6 @@ export type Database = {
           client_email?: string | null
           client_name: string
           client_phone: string
-          confirmation_code_hash: string
           created_at?: string | null
           duration_at_booking: number
           end_time: string
@@ -111,7 +109,6 @@ export type Database = {
           client_email?: string | null
           client_name?: string
           client_phone?: string
-          confirmation_code_hash?: string
           created_at?: string | null
           duration_at_booking?: number
           end_time?: string
@@ -397,6 +394,7 @@ export type Database = {
           is_working: boolean | null
           staff_id: string
           start_time: string
+          tenant_id: string
         }
         Insert: {
           break_end?: string | null
@@ -407,6 +405,7 @@ export type Database = {
           is_working?: boolean | null
           staff_id: string
           start_time?: string
+          tenant_id: string
         }
         Update: {
           break_end?: string | null
@@ -417,6 +416,7 @@ export type Database = {
           is_working?: boolean | null
           staff_id?: string
           start_time?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -424,6 +424,13 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_schedule_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -461,6 +468,45 @@ export type Database = {
           },
           {
             foreignKeyName: "staff_services_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_allowed_domains: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          domain: string
+          id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          domain: string
+          id?: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          domain?: string
+          id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_allowed_domains_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_allowed_domains_tenant_id_fkey"
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
@@ -597,7 +643,45 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_pending: {
+        Args: never
+        Returns: {
+          cancelled_count: number
+        }[]
+      }
+      confirm_booking_with_code: {
+        Args: { p_booking_id: string; p_confirmation_code: string }
+        Returns: {
+          booking_id: string
+          message: string
+          status: Database["public"]["Enums"]["booking_status"]
+          success: boolean
+        }[]
+      }
+      create_booking_safe: {
+        Args: {
+          p_client_email: string
+          p_client_name: string
+          p_client_phone: string
+          p_notes: string
+          p_service_id: string
+          p_staff_id: string
+          p_start_time: string
+          p_tenant_id: string
+          p_variant_id: string
+        }
+        Returns: {
+          booking_id: string
+          end_time: string
+          start_time: string
+          status: Database["public"]["Enums"]["booking_status"]
+        }[]
+      }
       get_current_tenant_id: { Args: never; Returns: string }
+      is_domain_allowed: {
+        Args: { p_origin: string; p_tenant_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       booking_status:
