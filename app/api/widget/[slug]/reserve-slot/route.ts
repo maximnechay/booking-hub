@@ -1,9 +1,9 @@
 // app/api/widget/[slug]/reserve-slot/route.ts
-// С АВТОМАТИЧЕСКИМ CLEANUP (для Vercel Free)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
+import { randomBytes } from 'crypto'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -22,14 +22,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const { slug } = await params
         const body = await request.json()
-
-        // НОВОЕ: Cleanup просроченных pending перед резервацией
-        try {
-            await supabaseAdmin.rpc('cleanup_expired_pending')
-        } catch (cleanupError) {
-            // Игнорируем ошибки cleanup, продолжаем работу
-            console.error('Cleanup error (non-critical):', cleanupError)
-        }
 
         const validationResult = reserveSchema.safeParse(body)
         if (!validationResult.success) {
@@ -53,69 +45,98 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
         }
 
-        const startTime = new Date(`${data.date}T${data.time}:00`)
+        // Очистка просроченных holds
+        await supabaseAdmin.rpc('cleanup_expired_holds')
 
-        // Получаем service для вычисления end_time
+        // Получаем услугу
         const { data: service } = await supabaseAdmin
             .from('services')
-            .select('duration, buffer_after, price')
+            .select('id, duration, buffer_after, price')
             .eq('id', data.service_id)
             .eq('tenant_id', tenant.id)
+            .eq('is_active', true)
             .single()
 
         if (!service) {
             return NextResponse.json({ error: 'Service not found' }, { status: 404 })
         }
 
+        // Если есть вариант — берём его данные
         let duration = service.duration
-        let price = service.price
 
         if (data.variant_id) {
             const { data: variant } = await supabaseAdmin
                 .from('service_variants')
                 .select('duration, price')
                 .eq('id', data.variant_id)
+                .eq('service_id', data.service_id)
                 .single()
 
             if (variant) {
                 duration = variant.duration
-                price = variant.price
             }
+        }
+
+        // Вычисляем время
+        const startTime = new Date(`${data.date}T${data.time}:00`)
+
+        // Проверка что время в будущем
+        if (startTime <= new Date()) {
+            return NextResponse.json({
+                error: 'TIME_PASSED',
+                message: 'Dieser Zeitpunkt liegt in der Vergangenheit.'
+            }, { status: 400 })
         }
 
         const totalDuration = duration + (service.buffer_after || 0)
         const endTime = new Date(startTime.getTime() + totalDuration * 60 * 1000)
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000) // 15 минут
 
-        // Создаём PENDING резервацию БЕЗ данных клиента
-        const { data: booking, error: bookingError } = await supabaseAdmin
+        // Генерируем уникальный токен сессии
+        const sessionToken = randomBytes(32).toString('hex')
+
+        // Проверяем нет ли уже реального бронирования на это время
+        const { data: existingBooking } = await supabaseAdmin
             .from('bookings')
+            .select('id')
+            .eq('staff_id', data.staff_id)
+            .in('status', ['pending', 'confirmed'])
+            .lt('start_time', endTime.toISOString())
+            .gt('end_time', startTime.toISOString())
+            .limit(1)
+            .single()
+
+        if (existingBooking) {
+            return NextResponse.json({
+                error: 'SLOT_TAKEN',
+                message: 'Dieser Zeitslot ist bereits gebucht.'
+            }, { status: 409 })
+        }
+
+        // Создаём hold в slot_holds
+        const { data: hold, error: holdError } = await supabaseAdmin
+            .from('slot_holds')
             .insert({
                 tenant_id: tenant.id,
                 service_id: data.service_id,
                 variant_id: data.variant_id || null,
                 staff_id: data.staff_id,
-                client_name: 'RESERVED',
-                client_phone: 'RESERVED',
                 start_time: startTime.toISOString(),
                 end_time: endTime.toISOString(),
-                status: 'pending',
                 expires_at: expiresAt.toISOString(),
-                price_at_booking: price,
-                duration_at_booking: duration,
-                source: 'widget',
+                session_token: sessionToken,
             })
-            .select('id, expires_at')
+            .select('id, expires_at, session_token')
             .single()
 
-        if (bookingError) {
-            console.error('Reservation error:', bookingError)
+        if (holdError) {
+            console.error('Hold creation error:', holdError)
 
-            // Exclusion constraint = слот уже занят
-            if (bookingError.code === '23P01') {
+            // Exclusion constraint = слот уже заблокирован
+            if (holdError.code === '23P01') {
                 return NextResponse.json({
                     error: 'SLOT_TAKEN',
-                    message: 'Dieser Zeitslot ist bereits gebucht.'
+                    message: 'Dieser Zeitslot ist bereits reserviert.'
                 }, { status: 409 })
             }
 
@@ -126,9 +147,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         return NextResponse.json({
-            reservation: {
-                id: booking.id,
-                expires_at: booking.expires_at,
+            hold: {
+                id: hold.id,
+                session_token: hold.session_token,
+                expires_at: hold.expires_at,
             },
             message: 'Zeitslot reserviert. Sie haben 15 Minuten.'
         }, { status: 201 })

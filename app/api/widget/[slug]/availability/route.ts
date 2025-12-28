@@ -7,9 +7,7 @@ interface RouteParams {
     params: Promise<{ slug: string }>
 }
 
-const dateRegex = /^\d{4}-\d{2}-\d{2}$/
-const MAX_RANGE_DAYS = 62
-
+// GET /api/widget/[slug]/availability?service_id=xxx&staff_id=xxx&from=2025-01-01&to=2025-01-31
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const { slug } = await params
@@ -25,22 +23,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             }, { status: 400 })
         }
 
-        if (!dateRegex.test(from) || !dateRegex.test(to)) {
-            return NextResponse.json({ error: 'Invalid date format' }, { status: 400 })
-        }
-
-        const fromDate = new Date(from)
-        const toDate = new Date(to)
-
-        if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) {
-            return NextResponse.json({ error: 'Invalid date range' }, { status: 400 })
-        }
-
-        const diffDays = Math.floor((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
-        if (diffDays <= 0 || diffDays > MAX_RANGE_DAYS) {
-            return NextResponse.json({ error: 'Date range too large' }, { status: 400 })
-        }
-
         const { data: tenant } = await supabaseAdmin
             .from('tenants')
             .select('id')
@@ -51,6 +33,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         if (!tenant) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
         }
+
+        // Очистка просроченных holds
+        await supabaseAdmin.rpc('cleanup_expired_holds')
 
         const { data: service } = await supabaseAdmin
             .from('services')
@@ -70,7 +55,16 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .select('*')
             .eq('staff_id', staffId)
 
-        const scheduleByDay = new Map<number, typeof scheduleRows[number]>()
+        type ScheduleRow = {
+            day_of_week: number
+            start_time: string
+            end_time: string
+            break_start: string | null
+            break_end: string | null
+            is_working: boolean | null
+        }
+
+        const scheduleByDay = new Map<number, ScheduleRow>()
         scheduleRows?.forEach(row => scheduleByDay.set(row.day_of_week, row))
 
         const { data: blockedDates } = await supabaseAdmin
@@ -95,6 +89,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const dayStart = `${from}T00:00:00`
         const dayEnd = `${to}T23:59:59`
 
+        // Получаем bookings
         const { data: bookings } = await supabaseAdmin
             .from('bookings')
             .select('start_time, end_time')
@@ -103,13 +98,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .lte('start_time', dayEnd)
             .in('status', ['pending', 'confirmed'])
 
-        const bookingsByDate = new Map<string, { start_time: string; end_time: string }[]>()
-        bookings?.forEach(booking => {
-            const dateKey = booking.start_time.slice(0, 10)
-            const list = bookingsByDate.get(dateKey) || []
-            list.push(booking)
-            bookingsByDate.set(dateKey, list)
+        // Получаем holds
+        const { data: holds } = await supabaseAdmin
+            .from('slot_holds')
+            .select('start_time, end_time')
+            .eq('staff_id', staffId)
+            .gte('start_time', dayStart)
+            .lte('start_time', dayEnd)
+            .gt('expires_at', new Date().toISOString())
+
+        // Объединяем занятые слоты по датам
+        const occupiedByDate = new Map<string, { start_time: string; end_time: string }[]>()
+
+        const allOccupied = [...(bookings || []), ...(holds || [])]
+        allOccupied.forEach(item => {
+            const dateKey = item.start_time.slice(0, 10)
+            const list = occupiedByDate.get(dateKey) || []
+            list.push(item)
+            occupiedByDate.set(dateKey, list)
         })
+
+        const fromDate = new Date(from)
+        const toDate = new Date(to)
+        const diffDays = Math.ceil((toDate.getTime() - fromDate.getTime()) / 86400000) + 1
 
         const unavailable: string[] = []
         const slotInterval = 15
@@ -148,7 +159,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 breakEnd = beH * 60 + beM
             }
 
-            const dayBookings = bookingsByDate.get(dateStr) || []
+            const dayOccupied = occupiedByDate.get(dateStr) || []
             let hasSlots = false
 
             for (let time = workStart; time + totalDuration <= workEnd; time += slotInterval) {
@@ -167,10 +178,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 const slotEnd = new Date(slotStart.getTime() + totalDuration * 60 * 1000)
 
                 let isAvailable = true
-                for (const booking of dayBookings) {
-                    const bookingStart = new Date(booking.start_time)
-                    const bookingEnd = new Date(booking.end_time)
-                    if (slotStart < bookingEnd && slotEnd > bookingStart) {
+                for (const occupied of dayOccupied) {
+                    const occStart = new Date(occupied.start_time)
+                    const occEnd = new Date(occupied.end_time)
+                    if (slotStart < occEnd && slotEnd > occStart) {
                         isAvailable = false
                         break
                     }

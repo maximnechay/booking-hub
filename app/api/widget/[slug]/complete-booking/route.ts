@@ -1,5 +1,4 @@
 // app/api/widget/[slug]/complete-booking/route.ts
-// ШАГ 2: Завершение бронирования (добавление данных клиента)
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
@@ -10,7 +9,8 @@ interface RouteParams {
 }
 
 const completeSchema = z.object({
-    reservation_id: z.string().uuid(),
+    hold_id: z.string().uuid(),
+    session_token: z.string().min(1),
     client_name: z.string().min(2).max(100),
     client_phone: z.string().min(5).max(50),
     client_email: z.string().email().nullable().optional(),
@@ -45,75 +45,120 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
         }
 
-        // Проверяем что резервация существует и ещё не истекла
-        const { data: reservation } = await supabaseAdmin
-            .from('bookings')
-            .select('id, status, expires_at, start_time, end_time')
-            .eq('id', data.reservation_id)
+        // Получаем hold и проверяем session_token
+        const { data: hold } = await supabaseAdmin
+            .from('slot_holds')
+            .select('*')
+            .eq('id', data.hold_id)
             .eq('tenant_id', tenant.id)
-            .eq('status', 'pending')
+            .eq('session_token', data.session_token)
             .single()
 
-        if (!reservation) {
+        if (!hold) {
             return NextResponse.json({
-                error: 'RESERVATION_NOT_FOUND',
-                message: 'Reservierung nicht gefunden oder abgelaufen.'
+                error: 'HOLD_NOT_FOUND',
+                message: 'Reservierung nicht gefunden oder ungültig.'
             }, { status: 404 })
         }
 
-        const expiresAt = reservation.expires_at
-        if (!expiresAt) {
-            return NextResponse.json({
-                error: 'RESERVATION_INVALID',
-                message: 'Ungültige Reservierung.'
-            }, { status: 400 })
-        }
-
-        if (new Date(expiresAt) < new Date()) {
-            // Отменяем просроченную
+        // Проверяем не истёк ли hold
+        if (new Date(hold.expires_at) < new Date()) {
+            // Удаляем просроченный hold
             await supabaseAdmin
-                .from('bookings')
-                .update({ status: 'cancelled' })
-                .eq('id', data.reservation_id)
+                .from('slot_holds')
+                .delete()
+                .eq('id', hold.id)
 
             return NextResponse.json({
-                error: 'RESERVATION_EXPIRED',
+                error: 'HOLD_EXPIRED',
                 message: 'Die Reservierung ist abgelaufen. Bitte buchen Sie erneut.'
             }, { status: 410 })
         }
 
-        // Обновляем данные клиента + подтверждаем
-        const { data: booking, error: updateError } = await supabaseAdmin
+        // Получаем данные услуги для сохранения цены/длительности
+        const { data: service } = await supabaseAdmin
+            .from('services')
+            .select('duration, price, buffer_after')
+            .eq('id', hold.service_id)
+            .single()
+
+        let duration = service?.duration || 60
+        let price = service?.price || 0
+
+        // Если есть вариант
+        if (hold.variant_id) {
+            const { data: variant } = await supabaseAdmin
+                .from('service_variants')
+                .select('duration, price')
+                .eq('id', hold.variant_id)
+                .single()
+
+            if (variant) {
+                duration = variant.duration
+                price = variant.price
+            }
+        }
+
+        // Создаём реальный booking
+        const { data: booking, error: bookingError } = await supabaseAdmin
             .from('bookings')
-            .update({
+            .insert({
+                tenant_id: tenant.id,
+                service_id: hold.service_id,
+                variant_id: hold.variant_id,
+                staff_id: hold.staff_id,
                 client_name: data.client_name,
                 client_phone: data.client_phone,
                 client_email: data.client_email || null,
                 notes: data.notes || null,
+                start_time: hold.start_time,
+                end_time: hold.end_time,
                 status: 'confirmed',
-                expires_at: null, // Убираем TTL
+                price_at_booking: price,
+                duration_at_booking: duration,
+                source: 'widget',
             })
-            .eq('id', data.reservation_id)
             .select('id, start_time, end_time, status')
             .single()
 
-        if (updateError) {
-            console.error('Complete booking error:', updateError)
+        if (bookingError) {
+            console.error('Booking creation error:', bookingError)
+
+            // Если конфликт — слот уже занят
+            if (bookingError.code === '23P01') {
+                // Удаляем hold
+                await supabaseAdmin
+                    .from('slot_holds')
+                    .delete()
+                    .eq('id', hold.id)
+
+                return NextResponse.json({
+                    error: 'SLOT_TAKEN',
+                    message: 'Dieser Zeitslot wurde bereits gebucht.'
+                }, { status: 409 })
+            }
+
             return NextResponse.json({
                 error: 'BOOKING_FAILED',
                 message: 'Buchung fehlgeschlagen.'
             }, { status: 500 })
         }
 
+        // Удаляем hold — он больше не нужен
+        await supabaseAdmin
+            .from('slot_holds')
+            .delete()
+            .eq('id', hold.id)
+
         return NextResponse.json({
             booking: {
                 id: booking.id,
                 start_time: booking.start_time,
                 end_time: booking.end_time,
-                status: booking.status, // 'confirmed'
+                status: booking.status,
             },
             message: 'Buchung erfolgreich bestätigt!'
-        }, { status: 200 })
+        }, { status: 201 })
 
     } catch (error) {
         console.error('Complete booking error:', error)

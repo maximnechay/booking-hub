@@ -34,6 +34,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
         }
 
+        // Очистка просроченных holds
+        await supabaseAdmin.rpc('cleanup_expired_holds')
+
         // Получаем услугу
         const { data: service } = await supabaseAdmin
             .from('services')
@@ -50,7 +53,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         // Получаем день недели (0 = Понедельник в нашей системе)
         const dateObj = new Date(date)
-        const dayOfWeek = (dateObj.getDay() + 6) % 7 // Конвертируем: Вс=0 -> Пн=0
+        const dayOfWeek = (dateObj.getDay() + 6) % 7
 
         // Проверяем blocked_dates для салона
         const { data: salonBlocked } = await supabaseAdmin
@@ -90,7 +93,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ slots: [], reason: 'Kein Arbeitstag' })
         }
 
-        // Получаем существующие брони на этот день
+        // Получаем существующие БРОНИ на этот день
         const dayStart = `${date}T00:00:00`
         const dayEnd = `${date}T23:59:59`
 
@@ -102,9 +105,24 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .lte('start_time', dayEnd)
             .in('status', ['pending', 'confirmed'])
 
+        // Получаем существующие HOLDS на этот день
+        const { data: holds } = await supabaseAdmin
+            .from('slot_holds')
+            .select('start_time, end_time')
+            .eq('staff_id', staffId)
+            .gte('start_time', dayStart)
+            .lte('start_time', dayEnd)
+            .gt('expires_at', new Date().toISOString()) // только активные
+
+        // Объединяем занятые слоты
+        const occupiedSlots = [
+            ...(bookings || []),
+            ...(holds || [])
+        ]
+
         // Генерируем слоты
         const slots: string[] = []
-        const slotInterval = 15 // интервал в минутах
+        const slotInterval = 15
 
         const [startHour, startMin] = schedule.start_time.split(':').map(Number)
         const [endHour, endMin] = schedule.end_time.split(':').map(Number)
@@ -122,7 +140,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const workStart = startHour * 60 + startMin
         const workEnd = endHour * 60 + endMin
 
-        // Текущее время (для фильтрации прошедших слотов)
+        // Текущее время
         const now = new Date()
         const today = now.toISOString().split('T')[0]
         const currentMinutes = now.getHours() * 60 + now.getMinutes()
@@ -141,21 +159,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 }
             }
 
-            // Проверяем пересечение с бронями
+            // Проверяем пересечение с занятыми слотами
             const slotStart = new Date(`${date}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
             const slotEnd = new Date(slotStart.getTime() + totalDuration * 60 * 1000)
 
             let isAvailable = true
 
-            if (bookings) {
-                for (const booking of bookings) {
-                    const bookingStart = new Date(booking.start_time)
-                    const bookingEnd = new Date(booking.end_time)
+            for (const occupied of occupiedSlots) {
+                const occStart = new Date(occupied.start_time)
+                const occEnd = new Date(occupied.end_time)
 
-                    if (slotStart < bookingEnd && slotEnd > bookingStart) {
-                        isAvailable = false
-                        break
-                    }
+                if (slotStart < occEnd && slotEnd > occStart) {
+                    isAvailable = false
+                    break
                 }
             }
 
