@@ -3,7 +3,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
-import crypto from 'crypto'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -51,141 +50,112 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
         }
 
-        // Получаем услугу
-        const { data: service } = await supabaseAdmin
-            .from('services')
-            .select('id, duration, buffer_after, price')
-            .eq('id', data.service_id)
-            .eq('tenant_id', tenant.id)
-            .eq('is_active', true)
-            .single()
-
-        if (!service) {
-            return NextResponse.json({ error: 'Service not found' }, { status: 404 })
-        }
-
-        // Если есть вариант — используем его duration и price
-        let duration = service.duration
-        let price = service.price
-
-        if (data.variant_id) {
-            const { data: variant } = await supabaseAdmin
-                .from('service_variants')
-                .select('id, duration, price')
-                .eq('id', data.variant_id)
-                .eq('service_id', data.service_id)
-                .eq('is_active', true)
-                .single()
-
-            if (!variant) {
-                return NextResponse.json({ error: 'Variant not found' }, { status: 404 })
-            }
-
-            duration = variant.duration
-            price = variant.price
-        }
-
-        // Проверяем мастера
-        const { data: staff } = await supabaseAdmin
-            .from('staff')
-            .select('id')
-            .eq('id', data.staff_id)
-            .eq('tenant_id', tenant.id)
-            .eq('is_active', true)
-            .single()
-
-        if (!staff) {
-            return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
-        }
-
-        // Проверяем что мастер оказывает услугу
-        const { data: staffService } = await supabaseAdmin
-            .from('staff_services')
-            .select('staff_id')
-            .eq('staff_id', data.staff_id)
-            .eq('service_id', data.service_id)
-            .single()
-
-        if (!staffService) {
-            return NextResponse.json({ error: 'Staff does not provide this service' }, { status: 400 })
-        }
-
-        // Вычисляем время
+        // Вычисляем timestamp
         const startTime = new Date(`${data.date}T${data.time}:00`)
-        const totalDuration = duration + (service.buffer_after || 0)
-        const endTime = new Date(startTime.getTime() + totalDuration * 60 * 1000)
 
-        // Проверяем что слот не в прошлом
-        if (startTime <= new Date()) {
-            return NextResponse.json({ error: 'Cannot book in the past' }, { status: 400 })
-        }
-
-        // Проверяем blocked_dates
-        const { data: blocked } = await supabaseAdmin
-            .from('blocked_dates')
-            .select('id')
-            .eq('tenant_id', tenant.id)
-            .eq('blocked_date', data.date)
-            .or(`staff_id.is.null,staff_id.eq.${data.staff_id}`)
-
-        if (blocked && blocked.length > 0) {
-            return NextResponse.json({ error: 'Date is not available' }, { status: 400 })
-        }
-
-        // Проверяем пересечение с существующими бронями
-        const { data: conflictingBookings } = await supabaseAdmin
-            .from('bookings')
-            .select('id')
-            .eq('staff_id', data.staff_id)
-            .in('status', ['pending', 'confirmed'])
-            .lt('start_time', endTime.toISOString())
-            .gt('end_time', startTime.toISOString())
-
-        if (conflictingBookings && conflictingBookings.length > 0) {
-            return NextResponse.json({ error: 'Time slot is no longer available' }, { status: 409 })
-        }
-
-        // Генерируем confirmation code
-        const confirmationCode = crypto.randomBytes(4).toString('hex').toUpperCase()
-        const confirmationCodeHash = crypto
-            .createHash('sha256')
-            .update(confirmationCode)
-            .digest('hex')
-
-        // Создаём бронь
-        const { data: booking, error: bookingError } = await supabaseAdmin
-            .from('bookings')
-            .insert({
-                tenant_id: tenant.id,
-                service_id: data.service_id,
-                variant_id: data.variant_id || null,
-                staff_id: data.staff_id,
-                client_name: data.client_name,
-                client_phone: data.client_phone,
-                client_email: data.client_email || null,
-                start_time: startTime.toISOString(),
-                end_time: endTime.toISOString(),
-                status: 'confirmed',
-                confirmation_code_hash: confirmationCodeHash,
-                notes: data.notes || null,
-                price_at_booking: price,
-                duration_at_booking: duration,
-                source: 'widget',
-            })
-            .select('id, start_time, end_time, status')
-            .single()
+        const { data: result, error: bookingError } = await supabaseAdmin.rpc('create_booking_safe', {
+            p_tenant_id: tenant.id,
+            p_service_id: data.service_id,
+            p_variant_id: (data.variant_id ?? null) as any,
+            p_staff_id: data.staff_id,
+            p_client_name: data.client_name,
+            p_client_phone: data.client_phone,
+            p_client_email: (data.client_email ?? null) as any,
+            p_start_time: startTime.toISOString(),
+            p_notes: (data.notes ?? null) as any,
+        })
 
         if (bookingError) {
             console.error('Booking creation error:', bookingError)
-            return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
+
+            // Обрабатываем специфичные ошибки от функции
+            const errorMessage = bookingError.message || ''
+
+            // Exclusion constraint violation (двойная запись от race condition)
+            if (errorMessage.includes('exclusion') || errorMessage.includes('conflicts with existing')) {
+                return NextResponse.json({
+                    error: 'SLOT_TAKEN',
+                    message: 'Dieser Zeitslot ist bereits gebucht. Bitte wählen Sie einen anderen.'
+                }, { status: 409 })
+            }
+
+            // Min advance hours (запись слишком рано)
+            if (errorMessage.includes('too soon') || errorMessage.includes('Minimum advance')) {
+                return NextResponse.json({
+                    error: 'TOO_SOON',
+                    message: 'Buchung zu kurzfristig. Bitte mindestens einige Stunden im Voraus buchen.'
+                }, { status: 400 })
+            }
+
+            // Max advance days (запись слишком далеко)
+            if (errorMessage.includes('too far') || errorMessage.includes('Maximum')) {
+                return NextResponse.json({
+                    error: 'TOO_FAR_AHEAD',
+                    message: 'Buchung zu weit in der Zukunft. Bitte einen früheren Termin wählen.'
+                }, { status: 400 })
+            }
+
+            // Время в прошлом
+            if (errorMessage.includes('must be in the future')) {
+                return NextResponse.json({
+                    error: 'TIME_PASSED',
+                    message: 'Dieser Zeitpunkt liegt in der Vergangenheit.'
+                }, { status: 400 })
+            }
+
+            // Салон закрыт
+            if (errorMessage.includes('closed')) {
+                return NextResponse.json({
+                    error: 'SALON_CLOSED',
+                    message: 'Der Salon ist an diesem Tag geschlossen.'
+                }, { status: 400 })
+            }
+
+            // Мастер недоступен
+            if (errorMessage.includes('not available')) {
+                return NextResponse.json({
+                    error: 'STAFF_UNAVAILABLE',
+                    message: 'Der Mitarbeiter ist an diesem Tag nicht verfügbar.'
+                }, { status: 400 })
+            }
+
+            // Услуга не найдена или неактивна
+            if (errorMessage.includes('not found') || errorMessage.includes('not available for booking')) {
+                return NextResponse.json({
+                    error: 'SERVICE_UNAVAILABLE',
+                    message: 'Diese Dienstleistung ist nicht verfügbar.'
+                }, { status: 404 })
+            }
+
+            // Общая ошибка
+            return NextResponse.json({
+                error: 'BOOKING_FAILED',
+                message: 'Buchung fehlgeschlagen. Bitte versuchen Sie es erneut.'
+            }, { status: 500 })
         }
 
+        // Функция возвращает массив с одним элементом
+        if (!result || result.length === 0) {
+            return NextResponse.json({
+                error: 'BOOKING_FAILED',
+                message: 'Buchung fehlgeschlagen.'
+            }, { status: 500 })
+        }
+
+        const booking = result[0]
+
+        // ВАЖНО: Теперь возвращаем status = 'pending'
+        // Клиент должен подтвердить запись в течение 15 минут!
         return NextResponse.json({
             booking: {
-                ...booking,
-                confirmation_code: confirmationCode,
-            }
+                id: booking.booking_id,
+                start_time: booking.start_time,
+                end_time: booking.end_time,
+                status: booking.status, // 'pending'
+            },
+            message: 'Buchung erfolgreich erstellt.'
         }, { status: 201 })
+
     } catch (error) {
         console.error('Widget book error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
