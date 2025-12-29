@@ -81,6 +81,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     const [step, setStep] = useState<Step>('service')
     const [isLoading, setIsLoading] = useState(true)
     const [isSlotsLoading, setIsSlotsLoading] = useState(false)
+    const [isDatesLoaded, setIsDatesLoaded] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     const [tenant, setTenant] = useState<Tenant | null>(null)
@@ -173,6 +174,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             const from = format(addDays(today, 1), 'yyyy-MM-dd')
             const to = format(addDays(today, 60), 'yyyy-MM-dd')
 
+            setIsDatesLoaded(false)
             try {
                 const params = new URLSearchParams({
                     service_id: serviceId,
@@ -189,6 +191,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 }
             } catch (err) {
                 setUnavailableDates([])
+            } finally {
+                setIsDatesLoaded(true)
             }
         }
 
@@ -284,6 +288,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         setSelectedStaff(staffMember)
         setSelectedDate(undefined)
         setSelectedTime('')
+        setIsDatesLoaded(false)
         setStep('datetime')
     }
 
@@ -755,8 +760,13 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     <div className="max-w-2xl">
                         <h2 className="text-lg font-semibold mb-4">Datum & Uhrzeit wählen</h2>
 
-                        <div className="bg-white border rounded-lg p-4 mb-6">
-                            <style>{`
+                        {!isDatesLoaded ? (
+                            <div className="bg-white border rounded-lg p-4 mb-6 flex items-center justify-center min-h-[400px]">
+                                <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                            </div>
+                        ) : (
+                            <div className="bg-white border rounded-lg p-4 mb-6">
+                                <style>{`
                 .rdp {
                   --rdp-cell-size: 40px;
                   --rdp-accent-color: #2563eb;
@@ -808,8 +818,9 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 }
                             />
                         </div>
+                        )}
 
-                        {selectedDate && (
+                        {isDatesLoaded && selectedDate && (
                             <div className="bg-white border rounded-lg p-4">
                                 <Label className="mb-3 block flex items-center gap-2">
                                     <Clock className="h-4 w-4" />
@@ -846,7 +857,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         )}
 
                         {/* Кнопка подтверждения времени */}
-                        {selectedTime && (
+                        {isDatesLoaded && selectedTime && (
                             <div className="mt-6 pt-6 border-t" ref={confirmButtonRef}>
                                 <div className="flex items-center justify-between mb-4">
                                     <div>
