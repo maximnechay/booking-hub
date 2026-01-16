@@ -1,13 +1,17 @@
-// middleware.ts
+// proxy.ts (бывший middleware.ts)
+// Next.js 16: proxy занимается ТОЛЬКО роутингом и cookie refresh
+// Auth проверки — в layout.tsx
 
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
         request,
     })
 
+    // Supabase cookie refresh — это НЕ auth check, это поддержание сессии
+    // Это должно остаться в proxy для корректной работы SSR
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -31,35 +35,16 @@ export async function middleware(request: NextRequest) {
         }
     )
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser()
-
-    const { pathname } = request.nextUrl
-
-    if (pathname.startsWith('/dashboard')) {
-        if (!user) {
-            const url = request.nextUrl.clone()
-            url.pathname = '/login'
-            url.searchParams.set('redirect', pathname)
-            return NextResponse.redirect(url)
-        }
-    }
-
-    if (pathname === '/login' || pathname === '/register') {
-        if (user) {
-            const url = request.nextUrl.clone()
-            url.pathname = '/dashboard'
-            return NextResponse.redirect(url)
-        }
-    }
+    // Вызываем getUser() чтобы обновить токены если нужно
+    // Но НЕ используем результат для редиректов — это делает layout
+    await supabase.auth.getUser()
 
     return supabaseResponse
 }
 
 export const config = {
     matcher: [
-
+        // Исключаем статику, API и виджет
         '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$|api|widget).*)',
     ],
 }
