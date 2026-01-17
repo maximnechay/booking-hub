@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -21,6 +22,15 @@ const reserveSchema = z.object({
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const { slug } = await params
+
+        // Rate limiting
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetReserve, rateLimitKey)
+
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
+        }
+
         const body = await request.json()
 
         const validationResult = reserveSchema.safeParse(body)
@@ -32,6 +42,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         const data = validationResult.data
+
+        // Вычисляем startTime сразу после валидации
+        const startTime = new Date(`${data.date}T${data.time}:00`)
+
+        // Проверка что время в будущем
+        if (startTime <= new Date()) {
+            return NextResponse.json({
+                error: 'TIME_PASSED',
+                message: 'Dieser Zeitpunkt liegt in der Vergangenheit.'
+            }, { status: 400 })
+        }
 
         // Получаем tenant
         const { data: tenant } = await supabaseAdmin
@@ -51,7 +72,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Получаем услугу
         const { data: service } = await supabaseAdmin
             .from('services')
-            .select('id, duration, buffer_after, price')
+            .select('id, duration, buffer_after, price, min_advance_hours, max_advance_days')
             .eq('id', data.service_id)
             .eq('tenant_id', tenant.id)
             .eq('is_active', true)
@@ -59,6 +80,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         if (!service) {
             return NextResponse.json({ error: 'Service not found' }, { status: 404 })
+        }
+
+        // Проверка min_advance_hours
+        const minAdvanceHours = service.min_advance_hours ?? 0
+        const minBookingTime = new Date(Date.now() + minAdvanceHours * 60 * 60 * 1000)
+
+        if (startTime < minBookingTime) {
+            return NextResponse.json({
+                error: 'TOO_SOON',
+                message: `Buchungen müssen mindestens ${minAdvanceHours} Stunden im Voraus erfolgen.`
+            }, { status: 400 })
+        }
+
+        // Проверка max_advance_days
+        const maxAdvanceDays = service.max_advance_days ?? 90
+        const maxBookingTime = new Date()
+        maxBookingTime.setDate(maxBookingTime.getDate() + maxAdvanceDays)
+        maxBookingTime.setHours(23, 59, 59, 999)
+
+        if (startTime > maxBookingTime) {
+            return NextResponse.json({
+                error: 'TOO_FAR',
+                message: `Buchungen können maximal ${maxAdvanceDays} Tage im Voraus erfolgen.`
+            }, { status: 400 })
         }
 
         // Если есть вариант — берём его данные
@@ -75,17 +120,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             if (variant) {
                 duration = variant.duration
             }
-        }
-
-        // Вычисляем время
-        const startTime = new Date(`${data.date}T${data.time}:00`)
-
-        // Проверка что время в будущем
-        if (startTime <= new Date()) {
-            return NextResponse.json({
-                error: 'TIME_PASSED',
-                message: 'Dieser Zeitpunkt liegt in der Vergangenheit.'
-            }, { status: 400 })
         }
 
         const totalDuration = duration + (service.buffer_after || 0)

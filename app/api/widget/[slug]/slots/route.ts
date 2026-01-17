@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -11,6 +12,15 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const { slug } = await params
+
+        // Rate limiting
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetSlots, rateLimitKey)
+
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
+        }
+
         const { searchParams } = new URL(request.url)
         const serviceId = searchParams.get('service_id')
         const staffId = searchParams.get('staff_id')
@@ -40,7 +50,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         // Получаем услугу
         const { data: service } = await supabaseAdmin
             .from('services')
-            .select('duration, buffer_after')
+            .select('duration, buffer_after, min_advance_hours, max_advance_days')
             .eq('id', serviceId)
             .eq('tenant_id', tenant.id)
             .single()
@@ -50,6 +60,20 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
 
         const totalDuration = service.duration + (service.buffer_after || 0)
+        const minAdvanceHours = service.min_advance_hours ?? 0
+        const maxAdvanceDays = service.max_advance_days ?? 90
+
+        // Проверка max_advance_days — дата слишком далеко
+        const maxDate = new Date()
+        maxDate.setDate(maxDate.getDate() + maxAdvanceDays)
+        const requestedDate = new Date(date)
+
+        if (requestedDate > maxDate) {
+            return NextResponse.json({
+                slots: [],
+                reason: 'Datum zu weit in der Zukunft'
+            })
+        }
 
         // Получаем день недели (0 = Понедельник в нашей системе)
         const dateObj = new Date(date)
@@ -140,14 +164,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const workStart = startHour * 60 + startMin
         const workEnd = endHour * 60 + endMin
 
-        // Текущее время
-        const now = new Date()
-        const today = now.toISOString().split('T')[0]
-        const currentMinutes = now.getHours() * 60 + now.getMinutes()
+        // Минимальное время бронирования с учётом min_advance_hours
+        const minBookingTime = new Date(Date.now() + minAdvanceHours * 60 * 60 * 1000)
 
         for (let time = workStart; time + totalDuration <= workEnd; time += slotInterval) {
-            // Пропускаем слоты в прошлом
-            if (date === today && time <= currentMinutes) {
+            // Проверяем min_advance_hours
+            const slotDateTime = new Date(`${date}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
+
+            if (slotDateTime < minBookingTime) {
                 continue
             }
 
@@ -160,7 +184,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             }
 
             // Проверяем пересечение с занятыми слотами
-            const slotStart = new Date(`${date}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
+            const slotStart = slotDateTime
             const slotEnd = new Date(slotStart.getTime() + totalDuration * 60 * 1000)
 
             let isAvailable = true

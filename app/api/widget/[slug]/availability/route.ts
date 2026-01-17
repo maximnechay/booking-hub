@@ -39,7 +39,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         const { data: service } = await supabaseAdmin
             .from('services')
-            .select('duration, buffer_after')
+            .select('duration, buffer_after, min_advance_hours, max_advance_days')
             .eq('id', serviceId)
             .eq('tenant_id', tenant.id)
             .single()
@@ -49,6 +49,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         }
 
         const totalDuration = service.duration + (service.buffer_after || 0)
+        const minAdvanceHours = service.min_advance_hours ?? 0
+        const maxAdvanceDays = service.max_advance_days ?? 90
+
+        // Максимальная дата для бронирования
+        const maxDate = new Date()
+        maxDate.setDate(maxDate.getDate() + maxAdvanceDays)
+        maxDate.setHours(23, 59, 59, 999)
 
         const { data: scheduleRows } = await supabaseAdmin
             .from('staff_schedule')
@@ -124,12 +131,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         const unavailable: string[] = []
         const slotInterval = 15
-        const today = new Date().toISOString().split('T')[0]
-        const currentMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+
+        // Минимальное время бронирования с учётом min_advance_hours
+        const minBookingTime = new Date(Date.now() + minAdvanceHours * 60 * 60 * 1000)
 
         for (let offset = 0; offset < diffDays; offset += 1) {
             const current = new Date(fromDate.getTime() + offset * 86400000)
             const dateStr = current.toISOString().slice(0, 10)
+
+            // Проверка max_advance_days — дата слишком далеко
+            if (current > maxDate) {
+                unavailable.push(dateStr)
+                continue
+            }
 
             if (blockedSalon.has(dateStr) || blockedStaff.has(dateStr)) {
                 unavailable.push(dateStr)
@@ -163,7 +177,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             let hasSlots = false
 
             for (let time = workStart; time + totalDuration <= workEnd; time += slotInterval) {
-                if (dateStr === today && time <= currentMinutes) {
+                // Проверяем min_advance_hours
+                const slotDateTime = new Date(`${dateStr}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
+
+                if (slotDateTime < minBookingTime) {
                     continue
                 }
 
@@ -174,7 +191,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                     }
                 }
 
-                const slotStart = new Date(`${dateStr}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
+                const slotStart = slotDateTime
                 const slotEnd = new Date(slotStart.getTime() + totalDuration * 60 * 1000)
 
                 let isAvailable = true
