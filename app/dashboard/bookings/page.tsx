@@ -132,7 +132,9 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
         query = query.gte('start_time', new Date().toISOString())
     }
 
-    const { data: bookings } = await query.order('start_time', { ascending: true })
+    // Für zukünftige Termine: aufsteigend (nächste zuerst)
+    // Sonst: absteigend (neueste zuerst)
+    const { data: bookings } = await query.order('start_time', { ascending: upcomingOnly })
 
     const formatDateTime = (value: string) => {
         return new Date(value).toLocaleString('de-DE', {
