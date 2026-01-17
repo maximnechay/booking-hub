@@ -23,6 +23,8 @@ interface Service {
     duration: number
     price: number
     buffer_after: number
+    min_advance_hours: number | null
+    max_advance_days: number | null
     is_active: boolean
     online_booking_enabled: boolean
     category_id: string | null
@@ -42,6 +44,8 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
         duration: 30,
         price: '',
         buffer_after: 0,
+        min_advance_hours: '',
+        max_advance_days: '',
         is_active: true,
         online_booking_enabled: true,
         category_id: '',
@@ -67,6 +71,8 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                     duration: service.duration,
                     price: (service.price / 100).toFixed(2),
                     buffer_after: service.buffer_after || 0,
+                    min_advance_hours: service.min_advance_hours?.toString() || '',
+                    max_advance_days: service.max_advance_days?.toString() || '',
                     is_active: service.is_active,
                     online_booking_enabled: service.online_booking_enabled,
                     category_id: service.category_id || '',
@@ -93,9 +99,16 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
         setError(null)
         setFieldErrors({})
 
-        try {
-            const priceInCents = Math.round(parseFloat(formData.price || '0') * 100)
+        // Конвертация цены в центы
+        const priceInCents = Math.round(parseFloat(formData.price.replace(',', '.')) * 100)
 
+        if (isNaN(priceInCents)) {
+            setError('Bitte geben Sie einen gültigen Preis ein')
+            setIsLoading(false)
+            return
+        }
+
+        try {
             const response = await fetch(`/api/services/${id}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
@@ -105,6 +118,8 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                     duration: formData.duration,
                     price: priceInCents,
                     buffer_after: formData.buffer_after,
+                    min_advance_hours: formData.min_advance_hours ? parseInt(formData.min_advance_hours) : null,
+                    max_advance_days: formData.max_advance_days ? parseInt(formData.max_advance_days) : null,
                     is_active: formData.is_active,
                     online_booking_enabled: formData.online_booking_enabled,
                     category_id: formData.category_id || null,
@@ -128,6 +143,25 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
         } finally {
             setIsLoading(false)
         }
+    }
+
+    // Рекурсивный рендер категорий для select
+    const renderCategoryOptions = (cats: Category[], level = 0): React.ReactElement[] => {
+        const result: React.ReactElement[] = []
+
+        for (const cat of cats) {
+            const prefix = '\u00A0\u00A0'.repeat(level)
+            result.push(
+                <option key={cat.id} value={cat.id}>
+                    {prefix}{cat.name}
+                </option>
+            )
+            if (cat.children && cat.children.length > 0) {
+                result.push(...renderCategoryOptions(cat.children, level + 1))
+            }
+        }
+
+        return result
     }
 
     if (isFetching) {
@@ -163,7 +197,7 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                         <Label htmlFor="name">Name *</Label>
                         <Input
                             id="name"
-                            placeholder="z.B. Haarschnitt Damen"
+                            placeholder="z.B. Haarschnitt"
                             value={formData.name}
                             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                             disabled={isLoading}
@@ -175,43 +209,30 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="category_id">Kategorie</Label>
-                        <select
-                            id="category_id"
-                            value={formData.category_id}
-                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
-                            disabled={isLoading}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="">— Keine Kategorie —</option>
-                            {categories.map(cat => (
-                                <optgroup key={cat.id} label={cat.name}>
-                                    {cat.children && cat.children.length > 0 ? (
-                                        cat.children.map(child => (
-                                            <option key={child.id} value={child.id}>{child.name}</option>
-                                        ))
-                                    ) : (
-                                        <option value={cat.id}>{cat.name}</option>
-                                    )}
-                                </optgroup>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div className="space-y-2">
                         <Label htmlFor="description">Beschreibung</Label>
                         <textarea
                             id="description"
-                            placeholder="Optionale Beschreibung der Dienstleistung"
+                            placeholder="Optionale Beschreibung..."
                             value={formData.description}
                             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                             disabled={isLoading}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                             rows={3}
+                            className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         />
-                        {fieldErrors.description && (
-                            <p className="text-sm text-red-600">{fieldErrors.description[0]}</p>
-                        )}
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="category">Kategorie</Label>
+                        <select
+                            id="category"
+                            value={formData.category_id}
+                            onChange={(e) => setFormData({ ...formData, category_id: e.target.value })}
+                            disabled={isLoading}
+                            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                            <option value="">Keine Kategorie</option>
+                            {renderCategoryOptions(categories)}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
@@ -222,9 +243,8 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                                 type="number"
                                 min="5"
                                 max="480"
-                                step="5"
                                 value={formData.duration}
-                                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 30 })}
+                                onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 0 })}
                                 disabled={isLoading}
                                 required
                             />
@@ -237,10 +257,8 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                             <Label htmlFor="price">Preis (€) *</Label>
                             <Input
                                 id="price"
-                                type="number"
-                                min="0"
-                                step="0.01"
-                                placeholder="0.00"
+                                type="text"
+                                placeholder="25,00"
                                 value={formData.price}
                                 onChange={(e) => setFormData({ ...formData, price: e.target.value })}
                                 disabled={isLoading}
@@ -253,21 +271,57 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                     </div>
 
                     <div className="space-y-2">
-                        <Label htmlFor="buffer_after">Pufferzeit danach (Minuten)</Label>
+                        <Label htmlFor="buffer_after">Puffer nach Termin (Minuten)</Label>
                         <Input
                             id="buffer_after"
                             type="number"
                             min="0"
                             max="60"
-                            step="5"
                             value={formData.buffer_after}
                             onChange={(e) => setFormData({ ...formData, buffer_after: parseInt(e.target.value) || 0 })}
                             disabled={isLoading}
                         />
-                        <p className="text-xs text-gray-500">Zeit zwischen Terminen für Vorbereitung</p>
+                        <p className="text-xs text-gray-500">Zeit zwischen Terminen (z.B. für Reinigung)</p>
                     </div>
 
-                    <div className="space-y-4">
+                    {/* Buchungsregeln */}
+                    <div className="border-t pt-6">
+                        <h3 className="text-sm font-medium text-gray-900 mb-4">Buchungsregeln</h3>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="min_advance_hours">Mindestvorlauf (Stunden)</Label>
+                                <Input
+                                    id="min_advance_hours"
+                                    type="number"
+                                    min="0"
+                                    max="168"
+                                    placeholder="0"
+                                    value={formData.min_advance_hours}
+                                    onChange={(e) => setFormData({ ...formData, min_advance_hours: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                                <p className="text-xs text-gray-500">Wie viele Stunden im Voraus muss gebucht werden?</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="max_advance_days">Maximale Vorausbuchung (Tage)</Label>
+                                <Input
+                                    id="max_advance_days"
+                                    type="number"
+                                    min="1"
+                                    max="365"
+                                    placeholder="90"
+                                    value={formData.max_advance_days}
+                                    onChange={(e) => setFormData({ ...formData, max_advance_days: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                                <p className="text-xs text-gray-500">Wie viele Tage im Voraus kann gebucht werden?</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 border-t pt-6">
                         <div className="flex items-center gap-3">
                             <input
                                 type="checkbox"
@@ -278,7 +332,7 @@ export default function EditServicePage({ params }: { params: Promise<{ id: stri
                                 className="h-4 w-4 rounded border-gray-300"
                             />
                             <Label htmlFor="is_active" className="font-normal">
-                                Dienstleistung ist aktiv
+                                Service ist aktiv
                             </Label>
                         </div>
 

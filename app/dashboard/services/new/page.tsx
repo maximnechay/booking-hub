@@ -28,6 +28,8 @@ export default function NewServicePage() {
         duration: 30,
         price: '',
         buffer_after: 0,
+        min_advance_hours: '',
+        max_advance_days: '',
         is_active: true,
         online_booking_enabled: true,
         category_id: '',
@@ -68,6 +70,8 @@ export default function NewServicePage() {
                     duration: formData.duration,
                     price: priceInCents,
                     buffer_after: formData.buffer_after,
+                    min_advance_hours: formData.min_advance_hours ? parseInt(formData.min_advance_hours) : null,
+                    max_advance_days: formData.max_advance_days ? parseInt(formData.max_advance_days) : null,
                     is_active: formData.is_active,
                     online_booking_enabled: formData.online_booking_enabled,
                     category_id: formData.category_id || null,
@@ -222,7 +226,44 @@ export default function NewServicePage() {
                         <p className="text-xs text-gray-500">Zeit zwischen Terminen für Vorbereitung</p>
                     </div>
 
-                    <div className="space-y-4">
+                    {/* Buchungsregeln */}
+                    <div className="border-t pt-6">
+                        <h3 className="text-sm font-medium text-gray-900 mb-4">Buchungsregeln</h3>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="min_advance_hours">Mindestvorlauf (Stunden)</Label>
+                                <Input
+                                    id="min_advance_hours"
+                                    type="number"
+                                    min="0"
+                                    max="168"
+                                    placeholder="0"
+                                    value={formData.min_advance_hours}
+                                    onChange={(e) => setFormData({ ...formData, min_advance_hours: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                                <p className="text-xs text-gray-500">Wie viele Stunden im Voraus muss gebucht werden?</p>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="max_advance_days">Maximale Vorausbuchung (Tage)</Label>
+                                <Input
+                                    id="max_advance_days"
+                                    type="number"
+                                    min="1"
+                                    max="365"
+                                    placeholder="90"
+                                    value={formData.max_advance_days}
+                                    onChange={(e) => setFormData({ ...formData, max_advance_days: e.target.value })}
+                                    disabled={isLoading}
+                                />
+                                <p className="text-xs text-gray-500">Wie viele Tage im Voraus kann gebucht werden?</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 border-t pt-6">
                         <div className="flex items-center gap-3">
                             <input
                                 type="checkbox"
