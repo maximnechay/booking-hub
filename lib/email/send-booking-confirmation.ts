@@ -16,6 +16,7 @@ interface BookingData {
     price: number         // центы
     salonAddress?: string
     salonPhone?: string
+    cancelUrl?: string
 }
 
 export async function sendBookingConfirmation(booking: BookingData) {
@@ -47,6 +48,7 @@ export async function sendBookingConfirmation(booking: BookingData) {
             price: formatPrice(booking.price),
             salonAddress: booking.salonAddress,
             salonPhone: booking.salonPhone,
+            cancelUrl: booking.cancelUrl,
         }),
     })
 }

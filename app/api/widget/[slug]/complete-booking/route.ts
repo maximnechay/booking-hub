@@ -3,7 +3,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
+import { randomBytes } from 'crypto'
 import { sendBookingConfirmation } from '@/lib/email/send-booking-confirmation'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
+
+function generateCancelToken(): string {
+    return randomBytes(32).toString('base64url')
+}
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -22,6 +28,12 @@ const completeSchema = z.object({
 export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
         const { slug } = await params
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetComplete, rateLimitKey)
+
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
+        }
         const body = await request.json()
 
         const validationResult = completeSchema.safeParse(body)
@@ -108,7 +120,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             .eq('id', hold.staff_id)
             .single()
 
-        // Создаём реальный booking
+        // Создаём реальный booking с токеном отмены
+        const cancelToken = generateCancelToken()
+
         const { data: booking, error: bookingError } = await supabaseAdmin
             .from('bookings')
             .insert({
@@ -126,6 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 price_at_booking: price,
                 duration_at_booking: duration,
                 source: 'widget',
+                cancel_token: cancelToken,
             })
             .select('id, start_time, end_time, status')
             .single()
@@ -159,6 +174,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         // Отправляем email (async, не блокируем ответ)
         if (data.client_email) {
+            const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://booking-hub.vercel.app'
+            const cancelUrl = `${baseUrl}/cancel/${cancelToken}`
+
             sendBookingConfirmation({
                 clientName: data.client_name,
                 clientEmail: data.client_email,
@@ -170,6 +188,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 price: price,
                 salonAddress: tenant.address || undefined,
                 salonPhone: tenant.phone || undefined,
+                cancelUrl,
             }).then(result => {
                 if (result.success) {
                     console.log(`📧 Confirmation email sent for booking ${booking.id}`)

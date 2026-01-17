@@ -2,11 +2,13 @@
 
 import {
     Body,
+    Button,
     Container,
     Head,
     Heading,
     Hr,
     Html,
+    Link,
     Preview,
     Section,
     Text,
@@ -23,6 +25,7 @@ interface BookingConfirmationEmailProps {
     price: string       // "35,00 €"
     salonAddress?: string
     salonPhone?: string
+    cancelUrl?: string
 }
 
 export default function BookingConfirmationEmail({
@@ -36,6 +39,7 @@ export default function BookingConfirmationEmail({
     price,
     salonAddress,
     salonPhone,
+    cancelUrl,
 }: BookingConfirmationEmailProps) {
     return (
         <Html>
@@ -77,12 +81,23 @@ export default function BookingConfirmationEmail({
                     {(salonAddress || salonPhone) && (
                         <>
                             <Hr style={hr} />
-                            <Text style={textSmall}>
-                                <strong>Adresse:</strong> {salonAddress || 'Nicht angegeben'}
-                            </Text>
+                            {salonAddress && (
+                                <Text style={textSmall}>
+                                    <strong>Adresse:</strong>{' '}
+                                    <Link
+                                        href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(salonAddress)}`}
+                                        style={link}
+                                    >
+                                        {salonAddress}
+                                    </Link>
+                                </Text>
+                            )}
                             {salonPhone && (
                                 <Text style={textSmall}>
-                                    <strong>Telefon:</strong> {salonPhone}
+                                    <strong>Telefon:</strong>{' '}
+                                    <Link href={`tel:${salonPhone.replace(/\s/g, '')}`} style={link}>
+                                        {salonPhone}
+                                    </Link>
                                 </Text>
                             )}
                         </>
@@ -90,10 +105,21 @@ export default function BookingConfirmationEmail({
 
                     <Hr style={hr} />
 
-                    <Text style={textSmall}>
-                        Falls Sie den Termin absagen oder verschieben möchten,
-                        kontaktieren Sie uns bitte telefonisch.
-                    </Text>
+                    {cancelUrl ? (
+                        <Section style={cancelSection}>
+                            <Text style={textSmall}>
+                                Falls Sie den Termin absagen möchten:
+                            </Text>
+                            <Button style={cancelButton} href={cancelUrl}>
+                                Termin stornieren
+                            </Button>
+                        </Section>
+                    ) : (
+                        <Text style={textSmall}>
+                            Falls Sie den Termin absagen oder verschieben möchten,
+                            kontaktieren Sie uns bitte telefonisch.
+                        </Text>
+                    )}
 
                     <Text style={footer}>
                         Mit freundlichen Grüßen,<br />
@@ -140,6 +166,11 @@ const textSmall = {
     margin: '8px 0',
 }
 
+const link = {
+    color: '#2563eb',
+    textDecoration: 'underline',
+}
+
 const detailsBox = {
     backgroundColor: '#f9fafb',
     borderRadius: '8px',
@@ -164,4 +195,21 @@ const footer = {
     fontSize: '14px',
     lineHeight: '22px',
     marginTop: '32px',
+}
+
+const cancelSection = {
+    textAlign: 'center' as const,
+    margin: '16px 0',
+}
+
+const cancelButton = {
+    backgroundColor: '#ef4444',
+    borderRadius: '6px',
+    color: '#ffffff',
+    fontSize: '14px',
+    fontWeight: '500',
+    padding: '10px 20px',
+    textDecoration: 'none',
+    display: 'inline-block',
+    marginTop: '8px',
 }
