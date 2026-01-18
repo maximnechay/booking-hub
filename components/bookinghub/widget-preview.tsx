@@ -41,7 +41,7 @@ export default function WidgetPreview({ slug, height = '900px' }: WidgetPreviewP
         <div
             id="bookinghub-widget"
             ref={containerRef}
-            className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm"
+            className="rounded-2xl border border-gray-200 bg-white p-1 shadow-sm"
         />
     )
 }
