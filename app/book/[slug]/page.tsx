@@ -404,11 +404,25 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         }
     }
 
-    const goBack = () => {
+    const goBack = async () => {
         if (step === 'staff') setStep('service')
         else if (step === 'datetime') setStep('staff')
         else if (step === 'form') {
-            // Сбрасываем hold при возврате
+            // Отменяем hold на сервере
+            if (holdId && sessionToken) {
+                try {
+                    await fetch(`/api/widget/${slug}/cancel-hold`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            hold_id: holdId,
+                            session_token: sessionToken,
+                        }),
+                    })
+                } catch (err) {
+                    console.error('Failed to cancel hold:', err)
+                }
+            }
             setHoldId(null)
             setSessionToken(null)
             setExpiresAt(null)
@@ -628,9 +642,9 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
                         )}
 
-                        <div className="flex gap-6">
+                        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
                             {/* Subcategories Sidebar */}
-                            <div className="w-64 flex-shrink-0">
+                            <div className="w-full md:w-64 md:flex-shrink-0">
                                 <div className="bg-white border rounded-lg overflow-hidden">
                                     {!selectedCategory ? (
                                         categories.flatMap(cat => cat.children).length > 0 ? (
@@ -684,7 +698,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
 
                             {/* Services List */}
-                            <div className="flex-1 space-y-3">
+                            <div className="flex-1 space-y-3 min-w-0">
                                 {getVisibleServices().map((service) => (
                                     <button
                                         key={service.id}
@@ -765,26 +779,37 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
                             </div>
                         ) : (
-                            <div className="bg-white border rounded-lg p-4 mb-6">
+                            <div className="bg-white border rounded-lg p-2 sm:p-4 mb-6 overflow-x-auto">
                                 <style>{`
-                .rdp {
+                .booking-calendar .rdp {
                   --rdp-cell-size: 40px;
                   --rdp-accent-color: #2563eb;
                   --rdp-background-color: #eff6ff;
-                  margin: 0;
+                  margin: 0 auto;
                 }
-                .rdp-day_disabled {
+                @media (max-width: 400px) {
+                  .booking-calendar .rdp {
+                    --rdp-cell-size: 36px;
+                  }
+                }
+                @media (max-width: 340px) {
+                  .booking-calendar .rdp {
+                    --rdp-cell-size: 32px;
+                  }
+                }
+                .booking-calendar .rdp-day_disabled {
                   color: #d1d5db !important;
                   background-color: #f3f4f6 !important;
                 }
-                .rdp-day_selected {
+                .booking-calendar .rdp-day_selected {
                   background-color: #2563eb !important;
                   color: white !important;
                 }
-                .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
+                .booking-calendar .rdp-button:hover:not([disabled]):not(.rdp-day_selected) {
                   background-color: #dbeafe;
                 }
               `}</style>
+                                <div className="booking-calendar min-w-[280px]">
                             <DayPicker
                                 mode="single"
                                 selected={selectedDate}
@@ -817,7 +842,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                     </div>
                                 }
                             />
-                        </div>
+                                </div>
+                            </div>
                         )}
 
                         {isDatesLoaded && selectedDate && (
@@ -832,7 +858,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                                     </div>
                                 ) : slots.length > 0 ? (
-                                    <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
                                         {slots.map((time) => (
                                             <button
                                                 key={time}
