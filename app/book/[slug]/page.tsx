@@ -810,38 +810,38 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 }
               `}</style>
                                 <div className="booking-calendar min-w-[280px]">
-                            <DayPicker
-                                mode="single"
-                                selected={selectedDate}
-                                onSelect={handleDateSelect}
-                                locale={de}
-                                disabled={[
-                                    { before: addDays(today, 1) },
-                                    { after: addDays(today, 60) },
-                                    ...unavailableDates,
-                                ]}
-                                modifiers={{
-                                    unavailable: unavailableDates,
-                                }}
-                                modifiersStyles={{
-                                    unavailable: {
-                                        color: '#d1d5db',
-                                        backgroundColor: '#f9fafb',
-                                    },
-                                }}
-                                footer={
-                                    <div className="mt-4 pt-4 border-t flex items-center gap-4 text-xs text-gray-500">
-                                        <span className="flex items-center gap-1">
-                                            <span className="w-3 h-3 rounded bg-blue-600"></span>
-                                            Ausgewählt
-                                        </span>
-                                        <span className="flex items-center gap-1">
-                                            <span className="w-3 h-3 rounded bg-gray-200"></span>
-                                            Nicht verfügbar
-                                        </span>
-                                    </div>
-                                }
-                            />
+                                    <DayPicker
+                                        mode="single"
+                                        selected={selectedDate}
+                                        onSelect={handleDateSelect}
+                                        locale={de}
+                                        disabled={[
+                                            { before: addDays(today, 1) },
+                                            { after: addDays(today, 60) },
+                                            ...unavailableDates,
+                                        ]}
+                                        modifiers={{
+                                            unavailable: unavailableDates,
+                                        }}
+                                        modifiersStyles={{
+                                            unavailable: {
+                                                color: '#d1d5db',
+                                                backgroundColor: '#f9fafb',
+                                            },
+                                        }}
+                                        footer={
+                                            <div className="mt-4 pt-4 border-t flex items-center gap-4 text-xs text-gray-500">
+                                                <span className="flex items-center gap-1">
+                                                    <span className="w-3 h-3 rounded bg-blue-600"></span>
+                                                    Ausgewählt
+                                                </span>
+                                                <span className="flex items-center gap-1">
+                                                    <span className="w-3 h-3 rounded bg-gray-200"></span>
+                                                    Nicht verfügbar
+                                                </span>
+                                            </div>
+                                        }
+                                    />
                                 </div>
                             </div>
                         )}
