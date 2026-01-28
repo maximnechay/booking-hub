@@ -67,12 +67,12 @@ interface BookingResult {
 type Step = 'service' | 'staff' | 'datetime' | 'form' | 'success'
 
 const iconMap: Record<string, React.ReactNode> = {
-    scissors: <Scissors className="h-6 w-6" />,
-    eye: <Eye className="h-6 w-6" />,
-    hand: <Hand className="h-6 w-6" />,
-    sparkles: <Sparkles className="h-6 w-6" />,
-    heart: <Heart className="h-6 w-6" />,
-    sun: <Sun className="h-6 w-6" />,
+    scissors: <Scissors className="h-5 w-5" />,
+    eye: <Eye className="h-5 w-5" />,
+    hand: <Hand className="h-5 w-5" />,
+    sparkles: <Sparkles className="h-5 w-5" />,
+    heart: <Heart className="h-5 w-5" />,
+    sun: <Sun className="h-5 w-5" />,
 }
 
 export default function BookingWidget({ params }: { params: Promise<{ slug: string }> }) {
@@ -622,57 +622,63 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                                 <button
                                     onClick={() => { setSelectedCategory(null); setExpandedSubCategory(null) }}
-                                    className={`flex flex-col items-center gap-2 p-4 border rounded-lg min-w-[100px] transition-all ${!selectedCategory ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
-                                        }`}
+                                    className={`flex flex-col items-center gap-1.5 px-4 py-3 border rounded-lg min-w-[80px] transition-all ${
+                                        !selectedCategory ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
+                                    }`}
                                 >
-                                    <List className="h-6 w-6" />
+                                    <List className="h-5 w-5" />
                                     <span className="text-xs font-medium">Alle</span>
                                 </button>
                                 {categories.map(cat => (
                                     <button
                                         key={cat.id}
                                         onClick={() => { setSelectedCategory(cat.id); setExpandedSubCategory(null) }}
-                                        className={`flex flex-col items-center gap-2 p-4 border rounded-lg min-w-[100px] transition-all ${selectedCategory === cat.id ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
-                                            }`}
+                                        className={`flex flex-col items-center gap-1.5 px-4 py-3 border rounded-lg min-w-[80px] transition-all ${
+                                            selectedCategory === cat.id ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
+                                        }`}
                                     >
-                                        {cat.icon && iconMap[cat.icon] ? iconMap[cat.icon] : <Scissors className="h-6 w-6" />}
-                                        <span className="text-xs font-medium text-center">{cat.name}</span>
+                                        {cat.icon && iconMap[cat.icon] ? iconMap[cat.icon] : <Scissors className="h-5 w-5" />}
+                                        <span className="text-xs font-medium text-center leading-tight">{cat.name}</span>
                                     </button>
                                 ))}
                             </div>
                         )}
 
-                        <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-6">
                             {/* Subcategories Sidebar */}
-                            <div className="w-full md:w-64 md:flex-shrink-0">
+                            <div className="lg:block">
                                 <div className="bg-white border rounded-lg overflow-hidden">
                                     {!selectedCategory ? (
                                         categories.flatMap(cat => cat.children).length > 0 ? (
                                             <>
                                                 <button
                                                     onClick={() => setExpandedSubCategory(null)}
-                                                    className={`w-full px-4 py-3 text-left flex items-center justify-between border-b transition-all ${!expandedSubCategory ? 'bg-gray-100' : 'hover:bg-gray-50'
-                                                        }`}
+                                                    className={`w-full px-4 py-3 text-left flex items-center justify-between border-b transition-all ${
+                                                        !expandedSubCategory ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                    }`}
                                                 >
                                                     <span className="text-sm font-medium text-gray-700">Alle Dienstleistungen</span>
-                                                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${!expandedSubCategory ? 'rotate-90' : ''
-                                                        }`} />
+                                                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${
+                                                        !expandedSubCategory ? 'rotate-90' : ''
+                                                    }`} />
                                                 </button>
                                                 {categories.flatMap(cat => cat.children).map(sub => (
                                                     <button
                                                         key={sub.id}
                                                         onClick={() => setExpandedSubCategory(expandedSubCategory === sub.id ? null : sub.id)}
-                                                        className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
-                                                            }`}
+                                                        className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${
+                                                            expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                        }`}
                                                     >
                                                         <span className="text-sm font-medium text-gray-700">{sub.name}</span>
-                                                        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expandedSubCategory === sub.id ? 'rotate-90' : ''
-                                                            }`} />
+                                                        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${
+                                                            expandedSubCategory === sub.id ? 'rotate-90' : ''
+                                                        }`} />
                                                     </button>
                                                 ))}
                                             </>
                                         ) : (
-                                            <div className="px-4 py-8 text-center">
+                                            <div className="px-4 py-6 text-center">
                                                 <p className="text-sm text-gray-400">Keine Unterkategorien</p>
                                             </div>
                                         )
@@ -681,16 +687,18 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                             <button
                                                 key={sub.id}
                                                 onClick={() => setExpandedSubCategory(expandedSubCategory === sub.id ? null : sub.id)}
-                                                className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
-                                                    }`}
+                                                className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${
+                                                    expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                }`}
                                             >
                                                 <span className="text-sm font-medium text-gray-700">{sub.name}</span>
-                                                <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expandedSubCategory === sub.id ? 'rotate-90' : ''
-                                                    }`} />
+                                                <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${
+                                                    expandedSubCategory === sub.id ? 'rotate-90' : ''
+                                                }`} />
                                             </button>
                                         ))
                                     ) : (
-                                        <div className="px-4 py-8 text-center">
+                                        <div className="px-4 py-6 text-center">
                                             <p className="text-sm text-gray-400">Keine Unterkategorien</p>
                                         </div>
                                     )}
@@ -698,34 +706,34 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
 
                             {/* Services List */}
-                            <div className="flex-1 space-y-3 min-w-0">
+                            <div className="space-y-3">
                                 {getVisibleServices().map((service) => (
                                     <button
                                         key={service.id}
                                         onClick={() => handleServiceClick(service)}
-                                        className="w-full bg-white border rounded-lg p-4 text-left hover:border-blue-500 hover:shadow transition-all"
+                                        className="w-full bg-white border rounded-lg p-4 text-left hover:border-blue-500 hover:shadow-sm transition-all"
                                     >
-                                        <div className="flex justify-between items-start">
-                                            <div>
+                                        <div className="flex justify-between items-start gap-4">
+                                            <div className="min-w-0 flex-1">
                                                 <p className="font-medium text-gray-900">{service.name}</p>
                                                 {service.description && (
                                                     <p className="text-sm text-gray-500 mt-1">{service.description}</p>
                                                 )}
                                                 <p className="text-sm text-gray-400 mt-2">
-                                                    {service.variants && service.variants.length > 0 ? (
-                                                        <span>{service.variants.length} Optionen verfügbar</span>
-                                                    ) : (
-                                                        formatDuration(service.duration)
-                                                    )}
+                                                    {service.variants && service.variants.length > 0
+                                                        ? `${service.variants.length} Optionen verfügbar`
+                                                        : formatDuration(service.duration)
+                                                    }
                                                 </p>
                                             </div>
-                                            <p className="font-semibold text-gray-900">
-                                                {service.variants && service.variants.length > 0 ? (
-                                                    `ab ${formatPrice(Math.min(...service.variants.map(v => v.price)))}`
-                                                ) : (
-                                                    formatPrice(service.price)
-                                                )}
-                                            </p>
+                                            <div className="shrink-0 text-right">
+                                                <p className="font-semibold text-gray-900 whitespace-nowrap">
+                                                    {service.variants && service.variants.length > 0
+                                                        ? `ab ${formatPrice(Math.min(...service.variants.map(v => v.price)))}`
+                                                        : formatPrice(service.price)
+                                                    }
+                                                </p>
+                                            </div>
                                         </div>
                                     </button>
                                 ))}
@@ -733,7 +741,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                     <p className="text-gray-500 text-center py-8">Keine Services in dieser Kategorie</p>
                                 )}
                             </div>
-
                         </div>
                     </div>
                 )}
@@ -858,15 +865,16 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                         <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
                                     </div>
                                 ) : slots.length > 0 ? (
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2">
+                                    <div className="flex flex-wrap gap-2">
                                         {slots.map((time) => (
                                             <button
                                                 key={time}
                                                 onClick={() => handleTimeSelect(time)}
-                                                className={`p-2 text-sm border rounded-lg transition-all ${selectedTime === time
-                                                    ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
-                                                    : 'hover:border-blue-300 hover:bg-blue-50'
-                                                    }`}
+                                                className={`px-3 py-2 text-sm border rounded-lg transition-all ${
+                                                    selectedTime === time
+                                                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                                                        : 'hover:border-blue-300 hover:bg-blue-50'
+                                                }`}
                                             >
                                                 {time}
                                             </button>
