@@ -13,8 +13,8 @@ import {
     Code,
     Settings,
     FolderTree,
-    LogOut
 } from 'lucide-react'
+import { LogoutButton } from '@/components/logout-button'
 
 const navigation = [
     { name: 'Übersicht', href: '/dashboard', icon: LayoutDashboard },
@@ -88,7 +88,7 @@ export default async function DashboardLayout({
 
                 {/* User */}
                 <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 mb-3">
                         <div className="h-8 w-8 rounded-full bg-gray-200 flex items-center justify-center">
                             <span className="text-sm font-medium text-gray-600">
                                 {userData.name?.charAt(0) || 'U'}
@@ -101,6 +101,7 @@ export default async function DashboardLayout({
                             <p className="text-xs text-gray-500 capitalize">{userData.role}</p>
                         </div>
                     </div>
+                    <LogoutButton />
                 </div>
             </aside>
 
