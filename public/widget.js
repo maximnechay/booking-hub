@@ -51,9 +51,11 @@
     var baseUrl = script.getAttribute('data-base-url') || getBaseUrl(script);
     var height = script.getAttribute('data-height') || '900px';
     var buttonText = script.getAttribute('data-button-text') || 'Termin buchen';
+    var color = script.getAttribute('data-color') || '#111827';
 
     var button = document.createElement('button');
     button.type = 'button';
+    button.className = 'bookinghub-popup-button';
     button.textContent = buttonText;
     button.style.position = 'fixed';
     button.style.right = '24px';
@@ -62,13 +64,14 @@
     button.style.padding = '12px 16px';
     button.style.borderRadius = '999px';
     button.style.border = '0';
-    button.style.background = '#111827';
+    button.style.background = color;
     button.style.color = '#fff';
     button.style.fontSize = '14px';
     button.style.cursor = 'pointer';
     button.style.boxShadow = '0 12px 30px rgba(17, 24, 39, 0.2)';
 
     var overlay = document.createElement('div');
+    overlay.className = 'bookinghub-popup-overlay';
     overlay.style.position = 'fixed';
     overlay.style.inset = '0';
     overlay.style.background = 'rgba(15, 23, 42, 0.55)';
