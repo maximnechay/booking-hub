@@ -2,11 +2,12 @@
 
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
+import useSWR from 'swr'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Plus, Pencil, Trash2, ChevronRight, Folder, FolderOpen } from 'lucide-react'
+import { Plus, Pencil, Trash2, ChevronRight, Folder, FolderOpen, Loader2 } from 'lucide-react'
 
 interface Category {
     id: string
@@ -19,9 +20,20 @@ interface Category {
     children?: Category[]
 }
 
+const fetcher = (url: string) => fetch(url).then(res => res.json())
+
 export default function CategoriesPage() {
-    const [categories, setCategories] = useState<Category[]>([])
-    const [isLoading, setIsLoading] = useState(false)
+    const { data, isLoading: isLoadingData, mutate } = useSWR<{ categories: Category[] }>(
+        '/api/categories',
+        fetcher,
+        {
+            revalidateOnFocus: false,
+            dedupingInterval: 30000, // 30 секунд кэш
+        }
+    )
+    const categories = data?.categories || []
+
+    const [isSaving, setIsSaving] = useState(false)
     const [showForm, setShowForm] = useState(false)
     const [editingCategory, setEditingCategory] = useState<Category | null>(null)
     const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
@@ -34,22 +46,6 @@ export default function CategoriesPage() {
         sort_order: 0,
         is_active: true,
     })
-
-    useEffect(() => {
-        loadCategories()
-    }, [])
-
-    async function loadCategories() {
-        try {
-            const res = await fetch('/api/categories')
-            const data = await res.json()
-            if (data.categories) {
-                setCategories(data.categories)
-            }
-        } catch (err) {
-            console.error('Failed to load categories:', err)
-        }
-    }
 
     const resetForm = () => {
         setFormData({
@@ -66,7 +62,7 @@ export default function CategoriesPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
-        setIsLoading(true)
+        setIsSaving(true)
         setError(null)
 
         try {
@@ -91,11 +87,11 @@ export default function CategoriesPage() {
 
             resetForm()
             setShowForm(false)
-            loadCategories()
+            mutate()
         } catch (err) {
             setError('Ein Fehler ist aufgetreten')
         } finally {
-            setIsLoading(false)
+            setIsSaving(false)
         }
     }
 
@@ -121,7 +117,7 @@ export default function CategoriesPage() {
             })
 
             if (response.ok) {
-                loadCategories()
+                mutate()
             }
         } catch (err) {
             console.error('Delete error:', err)
@@ -258,8 +254,8 @@ export default function CategoriesPage() {
                         </div>
 
                         <div className="flex gap-4 pt-2">
-                            <Button type="submit" disabled={isLoading}>
-                                {isLoading ? 'Wird gespeichert...' : 'Speichern'}
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? 'Wird gespeichert...' : 'Speichern'}
                             </Button>
                             <Button type="button" variant="outline" onClick={() => { setShowForm(false); resetForm() }}>
                                 Abbrechen
@@ -271,7 +267,12 @@ export default function CategoriesPage() {
 
             {/* Categories List */}
             <div className="bg-white rounded-lg shadow">
-                {categories.length > 0 ? (
+                {isLoadingData ? (
+                    <div className="px-6 py-12 text-center text-gray-500">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
+                        Kategorien werden geladen...
+                    </div>
+                ) : categories.length > 0 ? (
                     <ul className="divide-y divide-gray-200">
                         {categories.map((category) => (
                             <li key={category.id}>
