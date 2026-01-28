@@ -155,93 +155,95 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             </div>
 
             {/* Filters */}
-            <div className="bg-white rounded-lg shadow p-4 mb-6">
-                <form method="get" className="flex flex-col gap-4 md:flex-row md:items-end">
-                    <div className="flex-1 min-w-[160px] space-y-1">
-                        <label className="text-xs text-gray-500">Status</label>
-                        <select
-                            name="status"
-                            defaultValue={statusParam}
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        >
-                            <option value="all">Alle</option>
-                            <option value="pending">Ausstehend</option>
-                            <option value="confirmed">Bestätigt</option>
-                            <option value="completed">Abgeschlossen</option>
-                            <option value="cancelled">Storniert</option>
-                            <option value="no_show">Nicht erschienen</option>
-                        </select>
-                    </div>
-
-                    {staff && staff.length > 0 && (
-                        <div className="flex-1 min-w-[160px] space-y-1">
-                            <label className="text-xs text-gray-500">Mitarbeiter</label>
+            <div className="bg-white rounded-lg shadow p-3 md:p-4 mb-6">
+                <form method="get" className="space-y-3 md:space-y-0 md:flex md:flex-row md:items-end md:gap-4">
+                    <div className="grid grid-cols-2 gap-2 md:contents">
+                        <div className="space-y-1 md:flex-1 md:min-w-[160px]">
+                            <label className="text-xs text-gray-500">Status</label>
                             <select
-                                name="staff"
-                                defaultValue={staffParam}
-                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                                name="status"
+                                defaultValue={statusParam}
+                                className="h-9 md:h-10 w-full rounded-md border border-input bg-background px-2 md:px-3 py-1 text-sm"
                             >
-                                <option value="">Alle</option>
-                                {staff.map((s) => (
-                                    <option key={s.id} value={s.id}>{s.name}</option>
-                                ))}
+                                <option value="all">Alle</option>
+                                <option value="pending">Ausstehend</option>
+                                <option value="confirmed">Bestätigt</option>
+                                <option value="completed">Abgeschlossen</option>
+                                <option value="cancelled">Storniert</option>
+                                <option value="no_show">Nicht erschienen</option>
                             </select>
                         </div>
-                    )}
 
-                    {categories && categories.length > 0 && (
-                        <div className="flex-1 min-w-[160px] space-y-1">
-                            <label className="text-xs text-gray-500">Kategorie</label>
-                            <select
-                                name="category"
-                                defaultValue={categoryParam}
-                                className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                            >
-                                <option value="">Alle</option>
-                                {categories.map((c) => (
-                                    <option key={c.id} value={c.id}>{c.name}</option>
-                                ))}
-                            </select>
+                        {staff && staff.length > 0 && (
+                            <div className="space-y-1 md:flex-1 md:min-w-[160px]">
+                                <label className="text-xs text-gray-500">Mitarbeiter</label>
+                                <select
+                                    name="staff"
+                                    defaultValue={staffParam}
+                                    className="h-9 md:h-10 w-full rounded-md border border-input bg-background px-2 md:px-3 py-1 text-sm"
+                                >
+                                    <option value="">Alle</option>
+                                    {staff.map((s) => (
+                                        <option key={s.id} value={s.id}>{s.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        {categories && categories.length > 0 && (
+                            <div className="space-y-1 md:flex-1 md:min-w-[160px]">
+                                <label className="text-xs text-gray-500">Kategorie</label>
+                                <select
+                                    name="category"
+                                    defaultValue={categoryParam}
+                                    className="h-9 md:h-10 w-full rounded-md border border-input bg-background px-2 md:px-3 py-1 text-sm"
+                                >
+                                    <option value="">Alle</option>
+                                    {categories.map((c) => (
+                                        <option key={c.id} value={c.id}>{c.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        )}
+
+                        <div className="space-y-1 md:flex-1 md:min-w-[140px]">
+                            <label className="text-xs text-gray-500">Von</label>
+                            <input
+                                type="date"
+                                name="from"
+                                defaultValue={fromParam}
+                                className="h-9 md:h-10 w-full rounded-md border border-input bg-background px-2 md:px-3 py-1 text-sm"
+                            />
                         </div>
-                    )}
 
-                    <div className="flex-1 min-w-[140px] space-y-1">
-                        <label className="text-xs text-gray-500">Von</label>
-                        <input
-                            type="date"
-                            name="from"
-                            defaultValue={fromParam}
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        />
+                        <div className="space-y-1 md:flex-1 md:min-w-[140px]">
+                            <label className="text-xs text-gray-500">Bis</label>
+                            <input
+                                type="date"
+                                name="to"
+                                defaultValue={toParam}
+                                className="h-9 md:h-10 w-full rounded-md border border-input bg-background px-2 md:px-3 py-1 text-sm"
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex-1 min-w-[140px] space-y-1">
-                        <label className="text-xs text-gray-500">Bis</label>
-                        <input
-                            type="date"
-                            name="to"
-                            defaultValue={toParam}
-                            className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                        />
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                        <input
-                            type="checkbox"
-                            name="upcoming"
-                            id="upcoming"
-                            value="1"
-                            defaultChecked={upcomingOnly}
-                            className="h-4 w-4"
-                        />
-                        <label htmlFor="upcoming" className="text-sm text-gray-600">
+                    <div className="flex items-center justify-between gap-3 md:gap-2">
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                            <input
+                                type="checkbox"
+                                name="upcoming"
+                                id="upcoming"
+                                value="1"
+                                defaultChecked={upcomingOnly}
+                                className="h-4 w-4"
+                            />
                             Nur zukünftige
                         </label>
-                    </div>
 
-                    <Button type="submit" variant="outline">
-                        Filtern
-                    </Button>
+                        <Button type="submit" variant="outline" size="sm" className="md:size-default">
+                            Filtern
+                        </Button>
+                    </div>
                 </form>
             </div>
 

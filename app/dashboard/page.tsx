@@ -2,7 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { Calendar, Users, Scissors } from 'lucide-react'
+import Link from 'next/link'
+import { Calendar, Users, Scissors, Layers } from 'lucide-react'
 
 export default async function DashboardPage() {
     const supabase = await createClient()
@@ -78,6 +79,11 @@ export default async function DashboardPage() {
         .select('*', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
 
+    const { count: categoriesCount } = await supabase
+        .from('service_categories')
+        .select('*', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+
     const { count: bookingsCount } = await supabase
         .from('bookings')
         .select('*', { count: 'exact', head: true })
@@ -101,12 +107,17 @@ export default async function DashboardPage() {
         .gte('start_time', weekStart)
         .lt('start_time', weekEnd)
 
+    // Форматируем даты для фильтров
+    const today = new Date()
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+
     const stats = [
-        { name: 'Termine heute', value: todayCount || 0, icon: Calendar, color: 'bg-blue-100 text-blue-600' },
-        { name: 'Termine 7 Tage', value: upcomingCount || 0, icon: Calendar, color: 'bg-indigo-100 text-indigo-600' },
-        { name: 'Gesamt Termine', value: bookingsCount || 0, icon: Calendar, color: 'bg-amber-100 text-amber-600' },
-        { name: 'Dienstleistungen', value: servicesCount || 0, icon: Scissors, color: 'bg-purple-100 text-purple-600' },
-        { name: 'Mitarbeiter', value: staffCount || 0, icon: Users, color: 'bg-green-100 text-green-600' },
+        { name: 'Termine heute', value: todayCount || 0, icon: Calendar, color: 'bg-blue-100 text-blue-600', href: `/dashboard/bookings?from=${todayStr}&to=${todayStr}` },
+        { name: 'Termine 7 Tage', value: upcomingCount || 0, icon: Calendar, color: 'bg-indigo-100 text-indigo-600', href: '/dashboard/bookings?upcoming=1' },
+        { name: 'Gesamt Termine', value: bookingsCount || 0, icon: Calendar, color: 'bg-amber-100 text-amber-600', href: '/dashboard/bookings' },
+        { name: 'Dienstleistungen', value: servicesCount || 0, icon: Scissors, color: 'bg-purple-100 text-purple-600', href: '/dashboard/services' },
+        { name: 'Kategorien', value: categoriesCount || 0, icon: Layers, color: 'bg-pink-100 text-pink-600', href: '/dashboard/categories' },
+        { name: 'Mitarbeiter', value: staffCount || 0, icon: Users, color: 'bg-green-100 text-green-600', href: '/dashboard/staff' },
     ]
 
     return (
@@ -114,19 +125,19 @@ export default async function DashboardPage() {
             <h1 className="text-2xl font-bold text-gray-900 mb-8">Übersicht</h1>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-6 mb-8">
                 {stats.map((stat) => (
-                    <div key={stat.name} className="bg-white rounded-lg shadow p-6">
-                        <div className="flex items-center gap-4">
-                            <div className={`p-3 rounded-lg ${stat.color}`}>
-                                <stat.icon className="h-6 w-6" />
+                    <Link key={stat.name} href={stat.href} className="bg-white rounded-lg shadow p-3 md:p-6 hover:shadow-md transition-shadow">
+                        <div className="flex items-center gap-2 md:gap-4">
+                            <div className={`p-2 md:p-3 rounded-lg ${stat.color}`}>
+                                <stat.icon className="h-4 w-4 md:h-6 md:w-6" />
                             </div>
                             <div>
-                                <p className="text-sm text-gray-500">{stat.name}</p>
-                                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                                <p className="text-xs md:text-sm text-gray-500">{stat.name}</p>
+                                <p className="text-lg md:text-2xl font-bold text-gray-900">{stat.value}</p>
                             </div>
                         </div>
-                    </div>
+                    </Link>
                 ))}
             </div>
 
