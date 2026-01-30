@@ -104,14 +104,16 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
         }
 
-        // Отменяем (soft delete через статус)
+        // Soft delete — отменяем букинг
         const { error: updateError } = await supabase
             .from('bookings')
             .update({
                 status: 'cancelled',
+                cancelled_at: new Date().toISOString(),
                 updated_at: new Date().toISOString()
             })
             .eq('id', id)
+            .eq('tenant_id', userData.tenant_id)
 
         if (updateError) {
             console.error('Booking delete error:', updateError)

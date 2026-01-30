@@ -3,8 +3,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { Eye } from 'lucide-react'
+import { Eye, Plus, ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DeleteBookingButton } from './delete-booking-button'
+
+const PAGE_SIZE = 25
 
 type BookingStatus = 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show'
 
@@ -57,13 +60,14 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
 
     const { data: userData } = await supabase
         .from('users')
-        .select('tenant_id, tenant:tenants(timezone)')
+        .select('tenant_id, role, tenant:tenants(timezone)')
         .eq('id', user.id)
         .single()
 
     if (!userData?.tenant_id) redirect('/login')
 
     const timezone = userData.tenant?.timezone || 'Europe/Berlin'
+    const canDelete = userData.role === 'owner' || userData.role === 'admin'
 
     const statusParam = getParam('status') || 'all'
     const fromParam = getParam('from')
@@ -71,6 +75,9 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
     const upcomingOnly = getParam('upcoming') === '1'
     const staffParam = getParam('staff')
     const categoryParam = getParam('category')
+    const page = Math.max(1, parseInt(getParam('page') || '1', 10) || 1)
+    const from = (page - 1) * PAGE_SIZE
+    const to = from + PAGE_SIZE - 1
 
     const { data: staff } = await supabase
         .from('staff')
@@ -98,7 +105,7 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             duration_at_booking,
             staff:staff(id, name),
             service:services!inner(id, name, category_id, category:service_categories(id, name))
-        `)
+        `, { count: 'exact' })
         .eq('tenant_id', userData.tenant_id)
         .neq('client_name', 'RESERVED') // Скрываем незавершённые резервации
 
@@ -134,7 +141,26 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
 
     // Für zukünftige Termine: aufsteigend (nächste zuerst)
     // Sonst: absteigend (neueste zuerst)
-    const { data: bookings } = await query.order('start_time', { ascending: upcomingOnly })
+    const { data: bookings, count } = await query
+        .order('start_time', { ascending: upcomingOnly })
+        .range(from, to)
+
+    const totalCount = count ?? 0
+    const totalPages = Math.ceil(totalCount / PAGE_SIZE)
+
+    // Построение URL с сохранением текущих фильтров
+    function buildPageUrl(p: number) {
+        const params = new URLSearchParams()
+        if (statusParam !== 'all') params.set('status', statusParam)
+        if (staffParam) params.set('staff', staffParam)
+        if (categoryParam) params.set('category', categoryParam)
+        if (fromParam) params.set('from', fromParam)
+        if (toParam) params.set('to', toParam)
+        if (upcomingOnly) params.set('upcoming', '1')
+        if (p > 1) params.set('page', String(p))
+        const qs = params.toString()
+        return `/dashboard/bookings${qs ? `?${qs}` : ''}`
+    }
 
     const formatDateTime = (value: string) => {
         return new Date(value).toLocaleString('de-DE', {
@@ -152,6 +178,12 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
         <div>
             <div className="flex items-center justify-between mb-8">
                 <h1 className="text-2xl font-bold text-gray-900">Termine</h1>
+                <Link href="/dashboard/bookings/new">
+                    <Button>
+                        <Plus className="h-4 w-4 mr-1" />
+                        Neuer Termin
+                    </Button>
+                </Link>
             </div>
 
             {/* Filters */}
@@ -250,7 +282,10 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
             {/* Table */}
             {bookings && bookings.length > 0 ? (
                 <>
-                    <p className="text-sm text-gray-500 mb-4">{bookings.length} Termine gefunden</p>
+                    <p className="text-sm text-gray-500 mb-4">
+                        {totalCount} Termine gefunden
+                        {totalPages > 1 && ` — Seite ${page} von ${totalPages}`}
+                    </p>
                     <div className="bg-white rounded-lg shadow overflow-hidden">
                         <div className="overflow-x-auto">
                             <table className="min-w-full divide-y divide-gray-200">
@@ -296,12 +331,15 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <Link href={`/dashboard/bookings/${booking.id}`}>
-                                                    <Button variant="ghost" size="sm">
-                                                        <Eye className="h-4 w-4 mr-1" />
-                                                        Details
-                                                    </Button>
-                                                </Link>
+                                                <div className="flex items-center justify-end gap-1">
+                                                    <Link href={`/dashboard/bookings/${booking.id}`}>
+                                                        <Button variant="ghost" size="sm">
+                                                            <Eye className="h-4 w-4 mr-1" />
+                                                            Details
+                                                        </Button>
+                                                    </Link>
+                                                    {canDelete && <DeleteBookingButton bookingId={booking.id} />}
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -309,6 +347,31 @@ export default async function BookingsPage({ searchParams }: { searchParams: Sea
                             </table>
                         </div>
                     </div>
+
+                    {/* Pagination */}
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+                            <Link
+                                href={buildPageUrl(page - 1)}
+                                className={`inline-flex items-center gap-1 text-sm font-medium ${page <= 1 ? 'pointer-events-none text-gray-300' : 'text-gray-700 hover:text-gray-900'}`}
+                                aria-disabled={page <= 1}
+                            >
+                                <ChevronLeft className="h-4 w-4" />
+                                Zurück
+                            </Link>
+                            <span className="text-sm text-gray-500">
+                                Seite {page} von {totalPages}
+                            </span>
+                            <Link
+                                href={buildPageUrl(page + 1)}
+                                className={`inline-flex items-center gap-1 text-sm font-medium ${page >= totalPages ? 'pointer-events-none text-gray-300' : 'text-gray-700 hover:text-gray-900'}`}
+                                aria-disabled={page >= totalPages}
+                            >
+                                Weiter
+                                <ChevronRight className="h-4 w-4" />
+                            </Link>
+                        </div>
+                    )}
                 </>
             ) : (
                 <div className="bg-white rounded-lg shadow p-12 text-center">

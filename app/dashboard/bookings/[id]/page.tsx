@@ -18,7 +18,8 @@ import {
     CheckCircle,
     XCircle,
     AlertCircle,
-    FileText
+    FileText,
+    Trash2
 } from 'lucide-react'
 
 interface Booking {
@@ -89,6 +90,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     const [booking, setBooking] = useState<Booking | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isUpdating, setIsUpdating] = useState(false)
+    const [isDeleting, setIsDeleting] = useState(false)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
@@ -151,6 +153,30 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
             setError('Ein Fehler ist aufgetreten')
         } finally {
             setIsUpdating(false)
+        }
+    }
+
+    async function handleDelete() {
+        if (!booking) return
+        if (!confirm('Termin wirklich stornieren?')) {
+            return
+        }
+
+        setIsDeleting(true)
+        setError(null)
+
+        try {
+            const res = await fetch(`/api/bookings/${id}`, { method: 'DELETE' })
+            if (!res.ok) {
+                const data = await res.json()
+                setError(data.error || 'Fehler beim Stornieren')
+                return
+            }
+            router.push('/dashboard/bookings')
+        } catch (err) {
+            setError('Ein Fehler ist aufgetreten')
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -365,25 +391,31 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                 )}
 
                 {/* Actions */}
-                {transitions.length > 0 && (
-                    <div className="p-6 bg-gray-50">
-                        <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
-                            Aktionen
-                        </h2>
-                        <div className="flex flex-wrap gap-3">
-                            {transitions.map((action) => (
-                                <Button
-                                    key={action.status}
-                                    variant={action.variant}
-                                    onClick={() => handleStatusChange(action.status)}
-                                    disabled={isUpdating}
-                                >
-                                    {action.label}
-                                </Button>
-                            ))}
-                        </div>
+                <div className="p-6 bg-gray-50">
+                    <h2 className="text-sm font-medium text-gray-500 uppercase tracking-wider mb-4">
+                        Aktionen
+                    </h2>
+                    <div className="flex flex-wrap gap-3">
+                        {transitions.map((action) => (
+                            <Button
+                                key={action.status}
+                                variant={action.variant}
+                                onClick={() => handleStatusChange(action.status)}
+                                disabled={isUpdating || isDeleting}
+                            >
+                                {action.label}
+                            </Button>
+                        ))}
+                        <Button
+                            variant="destructive"
+                            onClick={handleDelete}
+                            disabled={isUpdating || isDeleting}
+                        >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            {isDeleting ? 'Wird storniert...' : 'Stornieren'}
+                        </Button>
                     </div>
-                )}
+                </div>
             </div>
 
             {/* Meta Info */}
