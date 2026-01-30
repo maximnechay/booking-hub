@@ -7,6 +7,7 @@ import { useState, useEffect, use, useRef } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { format, addDays, startOfDay } from 'date-fns'
 import { de } from 'date-fns/locale'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -1013,6 +1014,22 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 />
                             </div>
 
+                            <label className="flex items-start gap-2 text-sm text-gray-600">
+                                <input type="checkbox" required className="mt-1 h-4 w-4" />
+                                <span>
+                                    Ich habe die{' '}
+                                    <Link
+                                        href="/datenschutz"
+                                        target="_blank"
+                                        rel="noreferrer noopener"
+                                        className="underline"
+                                    >
+                                        Datenschutzerklärung
+                                    </Link>{' '}
+                                    gelesen und stimme der Verarbeitung meiner Daten zu.
+                                </span>
+                            </label>
+
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? (
                                     <>
@@ -1068,6 +1085,15 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     </div>
                 )}
             </main>
+            <div className="text-xs text-gray-500 text-center mt-4 pt-4 border-t">
+                <Link href="/impressum" target="_blank" rel="noreferrer noopener" className="hover:text-gray-700">
+                    Impressum
+                </Link>
+                {' | '}
+                <Link href="/datenschutz" target="_blank" rel="noreferrer noopener" className="hover:text-gray-700">
+                    Datenschutz
+                </Link>
+            </div>
         </div>
     )
 }
