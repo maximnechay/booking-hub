@@ -112,6 +112,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     })
     const [consent, setConsent] = useState(false)
     const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
+    const [website, setWebsite] = useState('') // honeypot
+    const [formStartTime, setFormStartTime] = useState<number | null>(null)
 
     // ИЗМЕНЕНО: Hold flow вместо reservation
     const [holdId, setHoldId] = useState<string | null>(null)
@@ -347,6 +349,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             const remaining = Math.max(0, Math.floor((expires - now) / 1000))
             setTimeRemaining(remaining)
 
+            setFormStartTime(Date.now())
             setStep('form')
         } catch (err) {
             setError('Ein Fehler ist aufgetreten')
@@ -392,6 +395,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     notes: formData.notes.trim() || null,
                     consent_given_at: new Date().toISOString(),
                     turnstile_token: turnstileToken,
+                    website,
+                    form_started_at: formStartTime,
                 }),
             })
 
@@ -640,9 +645,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
                                 <button
                                     onClick={() => { setSelectedCategory(null); setExpandedSubCategory(null) }}
-                                    className={`flex flex-col items-center gap-1.5 px-4 py-3 border rounded-lg min-w-[80px] transition-all ${
-                                        !selectedCategory ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
-                                    }`}
+                                    className={`flex flex-col items-center gap-1.5 px-4 py-3 border rounded-lg min-w-[80px] transition-all ${!selectedCategory ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
+                                        }`}
                                 >
                                     <List className="h-5 w-5" />
                                     <span className="text-xs font-medium">Alle</span>
@@ -651,9 +655,8 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                     <button
                                         key={cat.id}
                                         onClick={() => { setSelectedCategory(cat.id); setExpandedSubCategory(null) }}
-                                        className={`flex flex-col items-center gap-1.5 px-4 py-3 border rounded-lg min-w-[80px] transition-all ${
-                                            selectedCategory === cat.id ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
-                                        }`}
+                                        className={`flex flex-col items-center gap-1.5 px-4 py-3 border rounded-lg min-w-[80px] transition-all ${selectedCategory === cat.id ? 'border-blue-500 bg-blue-50' : 'hover:border-gray-300'
+                                            }`}
                                     >
                                         {cat.icon && iconMap[cat.icon] ? iconMap[cat.icon] : <Scissors className="h-5 w-5" />}
                                         <span className="text-xs font-medium text-center leading-tight">{cat.name}</span>
@@ -671,27 +674,23 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                             <>
                                                 <button
                                                     onClick={() => setExpandedSubCategory(null)}
-                                                    className={`w-full px-4 py-3 text-left flex items-center justify-between border-b transition-all ${
-                                                        !expandedSubCategory ? 'bg-gray-100' : 'hover:bg-gray-50'
-                                                    }`}
+                                                    className={`w-full px-4 py-3 text-left flex items-center justify-between border-b transition-all ${!expandedSubCategory ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                        }`}
                                                 >
                                                     <span className="text-sm font-medium text-gray-700">Alle Dienstleistungen</span>
-                                                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${
-                                                        !expandedSubCategory ? 'rotate-90' : ''
-                                                    }`} />
+                                                    <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${!expandedSubCategory ? 'rotate-90' : ''
+                                                        }`} />
                                                 </button>
                                                 {categories.flatMap(cat => cat.children).map(sub => (
                                                     <button
                                                         key={sub.id}
                                                         onClick={() => setExpandedSubCategory(expandedSubCategory === sub.id ? null : sub.id)}
-                                                        className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${
-                                                            expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
-                                                        }`}
+                                                        className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                            }`}
                                                     >
                                                         <span className="text-sm font-medium text-gray-700">{sub.name}</span>
-                                                        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${
-                                                            expandedSubCategory === sub.id ? 'rotate-90' : ''
-                                                        }`} />
+                                                        <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expandedSubCategory === sub.id ? 'rotate-90' : ''
+                                                            }`} />
                                                     </button>
                                                 ))}
                                             </>
@@ -705,14 +704,12 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                             <button
                                                 key={sub.id}
                                                 onClick={() => setExpandedSubCategory(expandedSubCategory === sub.id ? null : sub.id)}
-                                                className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${
-                                                    expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
-                                                }`}
+                                                className={`w-full px-4 py-3 text-left flex items-center justify-between border-b last:border-b-0 transition-all ${expandedSubCategory === sub.id ? 'bg-gray-100' : 'hover:bg-gray-50'
+                                                    }`}
                                             >
                                                 <span className="text-sm font-medium text-gray-700">{sub.name}</span>
-                                                <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${
-                                                    expandedSubCategory === sub.id ? 'rotate-90' : ''
-                                                }`} />
+                                                <ChevronRight className={`h-4 w-4 text-gray-400 transition-transform ${expandedSubCategory === sub.id ? 'rotate-90' : ''
+                                                    }`} />
                                             </button>
                                         ))
                                     ) : (
@@ -888,11 +885,10 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                             <button
                                                 key={time}
                                                 onClick={() => handleTimeSelect(time)}
-                                                className={`px-3 py-2 text-sm border rounded-lg transition-all ${
-                                                    selectedTime === time
+                                                className={`px-3 py-2 text-sm border rounded-lg transition-all ${selectedTime === time
                                                         ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
                                                         : 'hover:border-blue-300 hover:bg-blue-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 {time}
                                             </button>
@@ -984,6 +980,19 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 </div>
                             )}
 
+                            <div className="absolute -left-[9999px]" aria-hidden="true">
+                                <label htmlFor="website">Website</label>
+                                <input
+                                    type="text"
+                                    id="website"
+                                    name="website"
+                                    value={website}
+                                    onChange={(e) => setWebsite(e.target.value)}
+                                    tabIndex={-1}
+                                    autoComplete="off"
+                                />
+                            </div>
+
                             <div className="space-y-2">
                                 <Label htmlFor="client_name">Name *</Label>
                                 <Input
@@ -1031,11 +1040,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 />
                             </div>
 
-                            <Turnstile
-                                onVerify={(token) => setTurnstileToken(token)}
-                                onExpire={() => setTurnstileToken(null)}
-                                onError={() => setTurnstileToken(null)}
-                            />
 
                             <div className="flex items-start gap-3">
                                 <input
@@ -1060,6 +1064,11 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 </label>
                             </div>
 
+                            <Turnstile
+                                onVerify={(token) => setTurnstileToken(token)}
+                                onExpire={() => setTurnstileToken(null)}
+                                onError={() => setTurnstileToken(null)}
+                            />
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? (
                                     <>

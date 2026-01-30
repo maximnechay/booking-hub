@@ -25,6 +25,8 @@ const completeSchema = z.object({
     notes: z.string().max(500).nullable().optional(),
     consent_given_at: z.string().datetime(),
     turnstile_token: z.string().min(1),
+    website: z.string().optional(),
+    form_started_at: z.number().optional(),
 })
 
 // POST /api/widget/[slug]/complete-booking
@@ -48,6 +50,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         const data = validationResult.data
+
+        // Honeypot check
+        if (data.website && data.website.length > 0) {
+            console.log('[ANTIBOT] Honeypot triggered:', getRateLimitKey(request, slug))
+            return NextResponse.json({
+                error: 'BOOKING_FAILED',
+                message: 'Buchung fehlgeschlagen.'
+            }, { status: 400 })
+        }
+
+        // Timing check
+        const MIN_FORM_TIME_MS = 3000
+        if (data.form_started_at) {
+            const formDuration = Date.now() - data.form_started_at
+            if (formDuration < MIN_FORM_TIME_MS) {
+                console.log('[ANTIBOT] Timing check failed:', formDuration, 'ms')
+                return NextResponse.json({
+                    error: 'BOOKING_FAILED',
+                    message: 'Buchung fehlgeschlagen.'
+                }, { status: 400 })
+            }
+        }
 
         // Verify Turnstile token
         const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
