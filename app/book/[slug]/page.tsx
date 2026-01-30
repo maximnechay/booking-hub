@@ -109,6 +109,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         client_email: '',
         notes: '',
     })
+    const [consent, setConsent] = useState(false)
 
     // ИЗМЕНЕНО: Hold flow вместо reservation
     const [holdId, setHoldId] = useState<string | null>(null)
@@ -358,6 +359,12 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         setIsLoading(true)
         setError(null)
 
+        if (!consent) {
+            setError('Bitte stimmen Sie der Datenschutzerklärung zu.')
+            setIsLoading(false)
+            return
+        }
+
         if (!holdId || !sessionToken) {
             setError('Keine gültige Reservierung')
             setIsLoading(false)
@@ -375,6 +382,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     client_phone: formData.client_phone.trim(),
                     client_email: formData.client_email.trim() || null,
                     notes: formData.notes.trim() || null,
+                    consent_given_at: new Date().toISOString(),
                 }),
             })
 
@@ -1014,21 +1022,28 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 />
                             </div>
 
-                            <label className="flex items-start gap-2 text-sm text-gray-600">
-                                <input type="checkbox" required className="mt-1 h-4 w-4" />
-                                <span>
-                                    Ich habe die{' '}
-                                    <Link
+                            <div className="flex items-start gap-3">
+                                <input
+                                    type="checkbox"
+                                    id="consent"
+                                    checked={consent}
+                                    onChange={(e) => setConsent(e.target.checked)}
+                                    required
+                                    className="mt-1 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                />
+                                <label htmlFor="consent" className="text-sm text-gray-600">
+                                    Ich stimme der{' '}
+                                    <a
                                         href="/datenschutz"
                                         target="_blank"
-                                        rel="noreferrer noopener"
-                                        className="underline"
+                                        rel="noopener noreferrer"
+                                        className="text-blue-600 underline hover:text-blue-800"
                                     >
                                         Datenschutzerklärung
-                                    </Link>{' '}
-                                    gelesen und stimme der Verarbeitung meiner Daten zu.
-                                </span>
-                            </label>
+                                    </a>
+                                    {' '}zu. *
+                                </label>
+                            </div>
 
                             <Button type="submit" className="w-full" disabled={isLoading}>
                                 {isLoading ? (

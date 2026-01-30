@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
 import { sendBookingConfirmation } from '@/lib/email/send-booking-confirmation'
+import { sendAdminBookingNotification } from '@/lib/email/send-admin-notification'
 import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 function generateCancelToken(): string {
@@ -22,6 +23,7 @@ const completeSchema = z.object({
     client_phone: z.string().min(5).max(50),
     client_email: z.string().email(),
     notes: z.string().max(500).nullable().optional(),
+    consent_given_at: z.string().datetime(),
 })
 
 // POST /api/widget/[slug]/complete-booking
@@ -49,7 +51,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Получаем tenant с данными для email
         const { data: tenant } = await supabaseAdmin
             .from('tenants')
-            .select('id, name, address, phone')
+            .select('id, name, email, address, phone')
             .eq('slug', slug)
             .eq('is_active', true)
             .single()
@@ -141,6 +143,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 duration_at_booking: duration,
                 source: 'widget',
                 cancel_token: cancelToken,
+                consent_given_at: data.consent_given_at,
             })
             .select('id, start_time, end_time, status')
             .single()
@@ -172,7 +175,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             .delete()
             .eq('id', hold.id)
 
-        // Отправляем email (async, не блокируем ответ)
+        // Отправляем email владельцу салона (async)
+        sendAdminBookingNotification({
+            ownerEmail: tenant.email,
+            salonName: tenant.name,
+            clientName: data.client_name,
+            clientPhone: data.client_phone,
+            clientEmail: data.client_email || null,
+            serviceName: serviceName,
+            staffName: staffMember?.name || 'Mitarbeiter',
+            startTime: new Date(hold.start_time),
+            duration: duration,
+            price: price,
+        }).then(result => {
+            if (result.success) {
+                console.log(`📧 Admin notification sent for booking ${booking.id}`)
+            } else {
+                console.error(`📧 Failed to send admin notification for booking ${booking.id}:`, result.error)
+            }
+        })
+
+        // Отправляем email клиенту (async, не блокируем ответ)
         if (data.client_email) {
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://booking-hub.vercel.app'
             const cancelUrl = `${baseUrl}/cancel/${cancelToken}`
