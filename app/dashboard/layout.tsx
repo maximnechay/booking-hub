@@ -108,18 +108,21 @@ export default async function DashboardLayout({
             {/* Main content */}
             <main className="md:pl-64">
                 <div className="md:hidden bg-white border-b border-gray-200">
-                    <div className="h-14 flex items-center px-4">
-                        <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center">
-                            <span className="text-white font-bold text-sm">
-                                {userData.tenant?.name?.charAt(0) || 'B'}
-                            </span>
+                    <div className="h-14 flex items-center justify-between px-4">
+                        <div className="flex items-center">
+                            <div className="h-7 w-7 rounded-lg bg-blue-600 flex items-center justify-center">
+                                <span className="text-white font-bold text-sm">
+                                    {userData.tenant?.name?.charAt(0) || 'B'}
+                                </span>
+                            </div>
+                            <div className="ml-3">
+                                <p className="font-semibold text-gray-900 text-sm truncate max-w-[200px]">
+                                    {userData.tenant?.name}
+                                </p>
+                                <p className="text-xs text-gray-500">/{userData.tenant?.slug}</p>
+                            </div>
                         </div>
-                        <div className="ml-3">
-                            <p className="font-semibold text-gray-900 text-sm truncate max-w-[200px]">
-                                {userData.tenant?.name}
-                            </p>
-                            <p className="text-xs text-gray-500">/{userData.tenant?.slug}</p>
-                        </div>
+                        <LogoutButton className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-gray-700 rounded-md bg-gray-100 hover:bg-gray-200" />
                     </div>
                     <nav className="flex items-center gap-2 px-4 pb-3 overflow-x-auto">
                         {navigation.map((item) => (

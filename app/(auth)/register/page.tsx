@@ -27,6 +27,7 @@ export default function RegisterPage() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [privacyAccepted, setPrivacyAccepted] = useState(false)
     const [formData, setFormData] = useState({
         salonName: '',
         salonSlug: '',
@@ -53,6 +54,11 @@ export default function RegisterPage() {
         // Валидация
         if (!formData.salonName || !formData.name || !formData.email || !formData.password) {
             setError('Bitte füllen Sie alle Pflichtfelder aus')
+            setIsLoading(false)
+            return
+        }
+        if (!privacyAccepted) {
+            setError('Bitte stimmen Sie der Datenschutzerklärung zu')
             setIsLoading(false)
             return
         }
@@ -130,7 +136,11 @@ export default function RegisterPage() {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
-            <Card className="w-full max-w-md">
+            <div className="w-full max-w-md">
+                <Link href="/" className="inline-flex items-center text-sm text-gray-500 hover:text-gray-700 mb-4">
+                    ← Zurück zur Startseite
+                </Link>
+                <Card className="w-full">
                 <CardHeader className="space-y-1">
                     <CardTitle className="text-2xl font-bold">Salon registrieren</CardTitle>
                     <CardDescription>
@@ -228,6 +238,21 @@ export default function RegisterPage() {
                         </div>
                     </CardContent>
                     <CardFooter className="flex flex-col space-y-4 pt-6">
+                        <label className="flex items-start gap-2 text-sm text-gray-600 w-full">
+                            <input
+                                type="checkbox"
+                                checked={privacyAccepted}
+                                onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                                className="mt-1 h-4 w-4 rounded border-gray-300"
+                            />
+                            <span>
+                                Ich habe die{' '}
+                                <Link href="/datenschutz" className="text-blue-600 hover:underline">
+                                    Datenschutzerklärung
+                                </Link>{' '}
+                                gelesen und akzeptiere sie.
+                            </span>
+                        </label>
                         <Button type="submit" className="w-full" disabled={isLoading}>
                             {isLoading ? 'Wird erstellt...' : 'Salon erstellen'}
                         </Button>
@@ -239,7 +264,8 @@ export default function RegisterPage() {
                         </p>
                     </CardFooter>
                 </form>
-            </Card>
+                </Card>
+            </div>
         </div>
     )
 }
