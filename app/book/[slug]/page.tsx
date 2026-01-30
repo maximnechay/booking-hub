@@ -1100,15 +1100,27 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     </div>
                 )}
             </main>
-            <div className="text-xs text-gray-500 text-center mt-4 pt-4 border-t">
-                <Link href="/impressum" target="_blank" rel="noreferrer noopener" className="hover:text-gray-700">
-                    Impressum
-                </Link>
-                {' | '}
-                <Link href="/datenschutz" target="_blank" rel="noreferrer noopener" className="hover:text-gray-700">
-                    Datenschutz
-                </Link>
-            </div>
+            <footer className="border-t border-gray-200 bg-gray-50 py-4">
+                <div className="max-w-4xl mx-auto px-4 flex items-center justify-center gap-4 text-xs text-gray-500">
+                    <Link
+                        href="/impressum"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-gray-700 hover:underline"
+                    >
+                        Impressum
+                    </Link>
+                    <span>•</span>
+                    <Link
+                        href="/datenschutz"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-gray-700 hover:underline"
+                    >
+                        Datenschutz
+                    </Link>
+                </div>
+            </footer>
         </div>
     )
 }
