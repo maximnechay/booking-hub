@@ -8,6 +8,7 @@ import { DayPicker } from 'react-day-picker'
 import { format, addDays, startOfDay } from 'date-fns'
 import { de } from 'date-fns/locale'
 import Link from 'next/link'
+import { Turnstile } from '@/components/ui/turnstile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -110,6 +111,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         notes: '',
     })
     const [consent, setConsent] = useState(false)
+    const [turnstileToken, setTurnstileToken] = useState<string | null>(null)
 
     // ИЗМЕНЕНО: Hold flow вместо reservation
     const [holdId, setHoldId] = useState<string | null>(null)
@@ -359,6 +361,12 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         setIsLoading(true)
         setError(null)
 
+        if (!turnstileToken) {
+            setError('Bitte bestätigen Sie, dass Sie kein Roboter sind.')
+            setIsLoading(false)
+            return
+        }
+
         if (!consent) {
             setError('Bitte stimmen Sie der Datenschutzerklärung zu.')
             setIsLoading(false)
@@ -383,6 +391,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                     client_email: formData.client_email.trim() || null,
                     notes: formData.notes.trim() || null,
                     consent_given_at: new Date().toISOString(),
+                    turnstile_token: turnstileToken,
                 }),
             })
 
@@ -1021,6 +1030,12 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                     rows={3}
                                 />
                             </div>
+
+                            <Turnstile
+                                onVerify={(token) => setTurnstileToken(token)}
+                                onExpire={() => setTurnstileToken(null)}
+                                onError={() => setTurnstileToken(null)}
+                            />
 
                             <div className="flex items-start gap-3">
                                 <input

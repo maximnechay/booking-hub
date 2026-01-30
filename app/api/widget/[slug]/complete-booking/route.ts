@@ -24,6 +24,7 @@ const completeSchema = z.object({
     client_email: z.string().email(),
     notes: z.string().max(500).nullable().optional(),
     consent_given_at: z.string().datetime(),
+    turnstile_token: z.string().min(1),
 })
 
 // POST /api/widget/[slug]/complete-booking
@@ -47,6 +48,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
         const data = validationResult.data
+
+        // Verify Turnstile token
+        const turnstileRes = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                secret: process.env.TURNSTILE_SECRET_KEY,
+                response: data.turnstile_token,
+            }),
+        })
+        const turnstileData = await turnstileRes.json()
+
+        if (turnstileData.success !== true) {
+            return NextResponse.json({
+                error: 'CAPTCHA_FAILED',
+                message: 'Verifizierung fehlgeschlagen. Bitte versuchen Sie es erneut.'
+            }, { status: 400 })
+        }
 
         // Получаем tenant с данными для email
         const { data: tenant } = await supabaseAdmin
