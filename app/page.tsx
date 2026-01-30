@@ -59,7 +59,7 @@ export default function Home() {
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <Link
-                  href="/book/kristina"
+                  href="/book/test-salon"
                   className="inline-flex items-center gap-2 text-gray-700 px-6 py-3.5 rounded-xl font-semibold border border-gray-200 bg-white"
                 >
                   <Play className="w-4 h-4 text-blue-600" />
