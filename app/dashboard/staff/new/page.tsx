@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import ImageUpload from '@/components/ui/image-upload'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, X } from 'lucide-react'
 
 interface Service {
     id: string
@@ -20,6 +20,15 @@ export default function NewStaffPage() {
     const router = useRouter()
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [planModal, setPlanModal] = useState<{
+        isOpen: boolean
+        message: string
+        upgradeUrl: string
+    }>({
+        isOpen: false,
+        message: '',
+        upgradeUrl: '/dashboard/plan',
+    })
     const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({})
     const [services, setServices] = useState<Service[]>([])
     const [formData, setFormData] = useState({
@@ -82,6 +91,22 @@ export default function NewStaffPage() {
                 if (result.details) {
                     setFieldErrors(result.details)
                 }
+
+                const upgradeUrl = result.upgrade_url || '/dashboard/plan'
+                const isPlanError = result.error === 'STAFF_LIMIT_REACHED'
+                    || result.error === 'PLAN_LIMIT_REACHED'
+                    || result.error === 'SUBSCRIPTION_REQUIRED'
+                    || Boolean(result.upgrade_url)
+
+                if (isPlanError) {
+                    setPlanModal({
+                        isOpen: true,
+                        message: result.message || 'Diese Funktion ist in Ihrem Tarif nicht enthalten.',
+                        upgradeUrl,
+                    })
+                    return
+                }
+
                 setError(result.error || 'Fehler beim Erstellen des Mitarbeiters')
                 return
             }
@@ -228,6 +253,49 @@ export default function NewStaffPage() {
                     </div>
                 </form>
             </div>
+
+            {planModal.isOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b px-5 py-4">
+                            <h3 className="text-lg font-semibold text-gray-900">Nicht im Tarif</h3>
+                            <button
+                                type="button"
+                                onClick={() => setPlanModal(prev => ({ ...prev, isOpen: false }))}
+                                className="rounded p-1 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                                aria-label="Schließen"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                        </div>
+                        <div className="px-5 py-4 space-y-3">
+                            <p className="text-sm text-gray-600">
+                                Diese Funktion ist in Ihrem Tarif nicht enthalten.
+                            </p>
+                            {planModal.message && (
+                                <div className="rounded-md border bg-gray-50 p-3 text-sm text-gray-700">
+                                    {planModal.message}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex gap-3 px-5 pb-5">
+                            <Link href={planModal.upgradeUrl} className="flex-1">
+                                <Button type="button" className="w-full">
+                                    Zu den Tarifen
+                                </Button>
+                            </Link>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => setPlanModal(prev => ({ ...prev, isOpen: false }))}
+                            >
+                                Schließen
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
