@@ -71,6 +71,8 @@ export type Database = {
           id: string
           notes: string | null
           price_at_booking: number
+          reminder_sent_at: string | null
+          review_email_sent_at: string | null
           service_id: string
           source: string | null
           staff_id: string
@@ -95,6 +97,8 @@ export type Database = {
           id?: string
           notes?: string | null
           price_at_booking: number
+          reminder_sent_at?: string | null
+          review_email_sent_at?: string | null
           service_id: string
           source?: string | null
           staff_id: string
@@ -119,6 +123,8 @@ export type Database = {
           id?: string
           notes?: string | null
           price_at_booking?: number
+          reminder_sent_at?: string | null
+          review_email_sent_at?: string | null
           service_id?: string
           source?: string | null
           staff_id?: string
@@ -329,6 +335,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plans: {
+        Row: {
+          id: string
+          name: string
+          price_monthly: number
+          price_yearly: number | null
+          max_staff: number | null
+          max_bookings_per_month: number | null
+          max_locations: number | null
+          feature_email_staff: boolean | null
+          feature_reminder_24h: boolean | null
+          feature_review_email: boolean | null
+          feature_priority_support: boolean | null
+          feature_api_access: boolean | null
+          feature_custom_branding: boolean | null
+          is_active: boolean | null
+          sort_order: number | null
+          created_at: string | null
+        }
+        Insert: {
+          id: string
+          name: string
+          price_monthly: number
+          price_yearly?: number | null
+          max_staff?: number | null
+          max_bookings_per_month?: number | null
+          max_locations?: number | null
+          feature_email_staff?: boolean | null
+          feature_reminder_24h?: boolean | null
+          feature_review_email?: boolean | null
+          feature_priority_support?: boolean | null
+          feature_api_access?: boolean | null
+          feature_custom_branding?: boolean | null
+          is_active?: boolean | null
+          sort_order?: number | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          name?: string
+          price_monthly?: number
+          price_yearly?: number | null
+          max_staff?: number | null
+          max_bookings_per_month?: number | null
+          max_locations?: number | null
+          feature_email_staff?: boolean | null
+          feature_reminder_24h?: boolean | null
+          feature_review_email?: boolean | null
+          feature_priority_support?: boolean | null
+          feature_api_access?: boolean | null
+          feature_custom_branding?: boolean | null
+          is_active?: boolean | null
+          sort_order?: number | null
+          created_at?: string | null
+        }
+        Relationships: []
       }
       slot_holds: {
         Row: {
@@ -594,56 +657,123 @@ export type Database = {
       tenants: {
         Row: {
           address: string | null
+          billing_period_start: string | null
+          cover_image_url: string | null
           created_at: string | null
+          description: string | null
           email: string
           id: string
           is_active: boolean | null
           logo_url: string | null
           name: string
           phone: string | null
+          plan_id: string | null
           settings: Json | null
           slug: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
           timezone: string | null
+          trial_ends_at: string | null
           updated_at: string | null
-          description: string | null
-          cover_image_url: string | null
           website: string | null
         }
         Insert: {
           address?: string | null
+          billing_period_start?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
+          description?: string | null
           email: string
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
           name: string
           phone?: string | null
+          plan_id?: string | null
           settings?: Json | null
           slug: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
           timezone?: string | null
+          trial_ends_at?: string | null
           updated_at?: string | null
-          description?: string | null
-          cover_image_url?: string | null
           website?: string | null
         }
         Update: {
           address?: string | null
+          billing_period_start?: string | null
+          cover_image_url?: string | null
           created_at?: string | null
+          description?: string | null
           email?: string
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
           phone?: string | null
+          plan_id?: string | null
           settings?: Json | null
           slug?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
           timezone?: string | null
+          trial_ends_at?: string | null
           updated_at?: string | null
-          description?: string | null
-          cover_image_url?: string | null
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "tenants_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      usage_stats: {
+        Row: {
+          id: string
+          tenant_id: string
+          period_start: string
+          period_end: string
+          bookings_count: number | null
+          emails_sent: number | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          period_start: string
+          period_end: string
+          bookings_count?: number | null
+          emails_sent?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          period_start?: string
+          period_end?: string
+          bookings_count?: number | null
+          emails_sent?: number | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "usage_stats_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       users: {
         Row: {

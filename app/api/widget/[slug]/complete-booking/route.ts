@@ -7,6 +7,7 @@ import { randomBytes } from 'crypto'
 import { sendBookingConfirmation } from '@/lib/email/send-booking-confirmation'
 import { sendAdminBookingNotification } from '@/lib/email/send-admin-notification'
 import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
+import { PlanService } from '@/lib/services/plan-service'
 
 function generateCancelToken(): string {
     return randomBytes(32).toString('base64url')
@@ -101,6 +102,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         if (!tenant) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
+        }
+
+        // Проверка лимита букингов
+        const bookingLimit = await PlanService.checkBookingLimit(tenant.id)
+        if (!bookingLimit.allowed) {
+            return NextResponse.json({
+                error: 'BOOKING_LIMIT_REACHED',
+                message: 'Das monatliche Buchungslimit dieses Salons wurde erreicht. Bitte kontaktieren Sie den Salon.'
+            }, { status: 403 })
         }
 
         // Получаем hold и проверяем session_token

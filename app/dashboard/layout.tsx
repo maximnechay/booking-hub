@@ -13,8 +13,10 @@ import {
     Code,
     Settings,
     FolderTree,
+    CreditCard,
 } from 'lucide-react'
 import { LogoutButton } from '@/components/logout-button'
+import PlanBadge from '@/components/dashboard/PlanBadge'
 
 const navigation = [
     { name: 'Übersicht', href: '/dashboard', icon: LayoutDashboard },
@@ -25,6 +27,7 @@ const navigation = [
     { name: 'Öffnungszeiten', href: '/dashboard/oeffnungszeiten', icon: Clock },
     { name: 'Schließtage', href: '/dashboard/schedule', icon: CalendarOff },
     { name: 'Integration', href: '/dashboard/integration', icon: Code },
+    { name: 'Plan', href: '/dashboard/plan', icon: CreditCard },
     { name: 'Einstellungen', href: '/dashboard/settings', icon: Settings },
 ]
 
@@ -67,7 +70,15 @@ export default async function DashboardLayout({
                             <p className="font-semibold text-gray-900 text-sm truncate max-w-[160px]">
                                 {userData.tenant?.name}
                             </p>
-                            <p className="text-xs text-gray-500">/{userData.tenant?.slug}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="text-xs text-gray-500">/{userData.tenant?.slug}</p>
+                                {userData.tenant?.plan_id && (
+                                    <PlanBadge
+                                        planId={userData.tenant.plan_id}
+                                        planName={userData.tenant.plan_id === 'starter' ? 'Starter' : userData.tenant.plan_id === 'pro' ? 'Pro' : 'Business'}
+                                    />
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
