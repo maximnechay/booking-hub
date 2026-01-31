@@ -11,6 +11,9 @@ export interface Tenant {
     address: string | null
     timezone: string
     logo_url: string | null
+    description: string | null
+    cover_image_url: string | null
+    website: string | null
     settings: Json
     is_active: boolean
     created_at: string

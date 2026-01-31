@@ -401,6 +401,7 @@ export type Database = {
       staff: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string | null
           email: string | null
           id: string
@@ -409,11 +410,13 @@ export type Database = {
           phone: string | null
           sort_order: number | null
           tenant_id: string
+          title: string | null
           updated_at: string | null
           user_id: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -422,11 +425,13 @@ export type Database = {
           phone?: string | null
           sort_order?: number | null
           tenant_id: string
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           email?: string | null
           id?: string
@@ -435,6 +440,7 @@ export type Database = {
           phone?: string | null
           sort_order?: number | null
           tenant_id?: string
+          title?: string | null
           updated_at?: string | null
           user_id?: string | null
         }
@@ -599,6 +605,9 @@ export type Database = {
           slug: string
           timezone: string | null
           updated_at: string | null
+          description: string | null
+          cover_image_url: string | null
+          website: string | null
         }
         Insert: {
           address?: string | null
@@ -613,6 +622,9 @@ export type Database = {
           slug: string
           timezone?: string | null
           updated_at?: string | null
+          description?: string | null
+          cover_image_url?: string | null
+          website?: string | null
         }
         Update: {
           address?: string | null
@@ -627,6 +639,9 @@ export type Database = {
           slug?: string
           timezone?: string | null
           updated_at?: string | null
+          description?: string | null
+          cover_image_url?: string | null
+          website?: string | null
         }
         Relationships: []
       }
