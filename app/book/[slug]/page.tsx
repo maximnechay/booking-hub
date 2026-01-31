@@ -606,7 +606,11 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             {/* Header */}
             <header className="bg-white border-b">
                 <div className="max-w-4xl mx-auto px-4 py-4">
-                    <h1 className="text-xl font-bold text-gray-900">{tenant?.name}</h1>
+                    <Link href={`/${slug}`} className="inline-block">
+                        <h1 className="text-xl font-bold text-gray-900 hover:text-gray-700">
+                            {tenant?.name}
+                        </h1>
+                    </Link>
                     <p className="text-sm text-gray-500">Online-Terminbuchung</p>
                 </div>
             </header>

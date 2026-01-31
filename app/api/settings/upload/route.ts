@@ -84,11 +84,12 @@ export async function POST(request: NextRequest) {
             .getPublicUrl(filePath)
 
         const publicUrl = urlData.publicUrl
+        const versionedUrl = `${publicUrl}?v=${Date.now()}`
 
         const dbField = FIELD_MAP[uploadType as UploadType]
         const { error: updateError } = await supabaseAdmin
             .from('tenants')
-            .update({ [dbField]: publicUrl })
+            .update({ [dbField]: versionedUrl })
             .eq('id', userData.tenant_id)
 
         if (updateError) {
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to save URL' }, { status: 500 })
         }
 
-        return NextResponse.json({ url: publicUrl })
+        return NextResponse.json({ url: versionedUrl })
     } catch (error) {
         console.error('Upload error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -144,7 +145,7 @@ export async function DELETE(request: NextRequest) {
 
         const currentUrl = tenant?.[dbField]
         if (currentUrl) {
-            const storagePath = currentUrl.split('/tenant-assets/').pop()
+            const storagePath = currentUrl.split('/tenant-assets/').pop()?.split('?')[0]
             if (storagePath) {
                 await supabaseAdmin.storage.from('tenant-assets').remove([storagePath])
             }
