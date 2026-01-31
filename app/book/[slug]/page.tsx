@@ -90,6 +90,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     const [categories, setCategories] = useState<Category[]>([])
     const [uncategorizedServices, setUncategorizedServices] = useState<Service[]>([])
     const [staff, setStaff] = useState<Staff[]>([])
+    const [isStaffLoading, setIsStaffLoading] = useState(false)
     const [slots, setSlots] = useState<string[]>([])
     const [unavailableDates, setUnavailableDates] = useState<Date[]>([])
 
@@ -157,12 +158,17 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         const serviceId = selectedService.id
 
         async function loadStaff() {
+            setIsStaffLoading(true)
+            setStaff([])
             try {
                 const res = await fetch(`/api/widget/${slug}/staff?service_id=${serviceId}`)
                 const data = await res.json()
                 setStaff(data.staff || [])
             } catch (err) {
                 console.error('Failed to load staff:', err)
+                setStaff([])
+            } finally {
+                setIsStaffLoading(false)
             }
         }
         loadStaff()
@@ -768,24 +774,40 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             Mitarbeiter wählen
                         </h2>
                         <div className="space-y-3 max-w-2xl">
-                            {staff.map((member) => (
-                                <button
-                                    key={member.id}
-                                    onClick={() => handleStaffSelect(member)}
-                                    className="w-full bg-white border rounded-lg p-4 text-left hover:border-blue-500 hover:shadow transition-all"
-                                >
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center">
-                                            <span className="text-lg font-medium text-gray-600">
-                                                {member.name.charAt(0)}
-                                            </span>
-                                        </div>
-                                        <p className="font-medium text-gray-900">{member.name}</p>
-                                    </div>
-                                </button>
-                            ))}
-                            {staff.length === 0 && (
-                                <p className="text-gray-500 text-center py-8">Keine Mitarbeiter verfügbar</p>
+                            {isStaffLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                                </div>
+                            ) : (
+                                <>
+                                    {staff.map((member) => (
+                                        <button
+                                            key={member.id}
+                                            onClick={() => handleStaffSelect(member)}
+                                            className="w-full bg-white border rounded-lg p-4 text-left hover:border-blue-500 hover:shadow transition-all"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-full bg-gray-200 flex items-center justify-center overflow-hidden">
+                                                    {member.avatar_url ? (
+                                                        <img
+                                                            src={member.avatar_url}
+                                                            alt={member.name}
+                                                            className="h-full w-full object-cover"
+                                                        />
+                                                    ) : (
+                                                        <span className="text-lg font-medium text-gray-600">
+                                                            {member.name.charAt(0)}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="font-medium text-gray-900">{member.name}</p>
+                                            </div>
+                                        </button>
+                                    ))}
+                                    {staff.length === 0 && (
+                                        <p className="text-gray-500 text-center py-8">Keine Mitarbeiter verfügbar</p>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>
