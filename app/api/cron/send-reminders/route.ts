@@ -19,12 +19,14 @@ export async function GET(request: NextRequest) {
 
         // Найти bookings для напоминания:
         // - status = confirmed
-        // - start_time между 23-25 часов от сейчас
+        // - start_time сегодня (cron запускается в 7:00 UTC = 8:00/9:00 Berlin)
         // - reminder_sent_at IS NULL
         // - tenant имеет feature_reminder_24h
-        const now = new Date()
-        const from = new Date(now.getTime() + 23 * 60 * 60 * 1000) // +23h
-        const to = new Date(now.getTime() + 25 * 60 * 60 * 1000)   // +25h
+        const today = new Date()
+        today.setUTCHours(0, 0, 0, 0)
+
+        const tomorrow = new Date(today)
+        tomorrow.setUTCDate(tomorrow.getUTCDate() + 1)
 
         const { data: bookings, error } = await supabaseAdmin
             .from('bookings')
@@ -49,8 +51,8 @@ export async function GET(request: NextRequest) {
             `)
             .eq('status', 'confirmed')
             .is('reminder_sent_at', null)
-            .gte('start_time', from.toISOString())
-            .lte('start_time', to.toISOString())
+            .gte('start_time', today.toISOString())
+            .lt('start_time', tomorrow.toISOString())
 
         if (error) {
             console.error('[CRON] Query error:', error)

@@ -42,7 +42,7 @@ export default function BookingReminderEmail({
     return (
         <Html>
             <Head />
-            <Preview>Erinnerung: Ihr Termin morgen bei {salonName} um {time} Uhr</Preview>
+            <Preview>Erinnerung: Ihr Termin heute bei {salonName} um {time} Uhr</Preview>
             <Body style={main}>
                 <Container style={container}>
                     <Heading style={h1}>Terminerinnerung</Heading>
@@ -52,7 +52,7 @@ export default function BookingReminderEmail({
                     </Text>
 
                     <Text style={text}>
-                        wir möchten Sie an Ihren morgigen Termin erinnern:
+                        wir möchten Sie an Ihren heutigen Termin erinnern:
                     </Text>
 
                     <Section style={detailsBox}>

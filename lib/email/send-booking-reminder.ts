@@ -22,7 +22,7 @@ export async function sendBookingReminder(params: SendReminderParams) {
 
     return sendEmail({
         to,
-        subject: `Erinnerung: Ihr Termin morgen bei ${salonName}`,
+        subject: `Erinnerung: Ihr Termin heute bei ${salonName}`,
         react: BookingReminderEmail({ ...emailProps, salonName }),
     })
 }
