@@ -6,9 +6,12 @@ import { Upload, X, Loader2 } from 'lucide-react'
 interface ImageUploadProps {
     currentUrl: string | null | undefined
     onUploaded: (url: string | null) => void
-    uploadType: 'logo' | 'cover'
+    uploadType: 'logo' | 'cover' | 'avatar'
     label: string
     aspect?: 'square' | 'wide'
+    uploadEndpoint?: string
+    extraUploadData?: Record<string, string>
+    extraDeleteData?: Record<string, string>
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
@@ -19,6 +22,9 @@ export default function ImageUpload({
     uploadType,
     label,
     aspect = 'square',
+    uploadEndpoint = '/api/settings/upload',
+    extraUploadData,
+    extraDeleteData,
 }: ImageUploadProps) {
     const [isUploading, setIsUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -48,8 +54,13 @@ export default function ImageUpload({
             const formData = new FormData()
             formData.append('file', file)
             formData.append('type', uploadType)
+            if (extraUploadData) {
+                Object.entries(extraUploadData).forEach(([key, value]) => {
+                    formData.append(key, value)
+                })
+            }
 
-            const res = await fetch('/api/settings/upload', {
+            const res = await fetch(uploadEndpoint, {
                 method: 'POST',
                 body: formData,
             })
@@ -74,10 +85,18 @@ export default function ImageUpload({
         setError(null)
 
         try {
-            const res = await fetch('/api/settings/upload', {
+            const payload: Record<string, string> = { type: uploadType }
+            if (extraDeleteData) {
+                Object.assign(payload, extraDeleteData)
+            }
+            if (currentUrl) {
+                payload.url = currentUrl
+            }
+
+            const res = await fetch(uploadEndpoint, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: uploadType }),
+                body: JSON.stringify(payload),
             })
 
             if (!res.ok) {

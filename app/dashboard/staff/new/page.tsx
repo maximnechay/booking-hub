@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import ImageUpload from '@/components/ui/image-upload'
 import { ArrowLeft } from 'lucide-react'
 
 interface Service {
@@ -25,6 +26,7 @@ export default function NewStaffPage() {
         name: '',
         email: '',
         phone: '',
+        avatar_url: '',
         is_active: true,
         service_ids: [] as string[],
     })
@@ -68,6 +70,7 @@ export default function NewStaffPage() {
                     name: formData.name,
                     email: formData.email || null,
                     phone: formData.phone || null,
+                    avatar_url: formData.avatar_url || null,
                     is_active: formData.is_active,
                     service_ids: formData.service_ids,
                 }),
@@ -159,6 +162,18 @@ export default function NewStaffPage() {
                             )}
                         </div>
                     </div>
+
+                    <ImageUpload
+                        currentUrl={formData.avatar_url || null}
+                        onUploaded={(url) => setFormData({ ...formData, avatar_url: url ?? '' })}
+                        uploadType="avatar"
+                        uploadEndpoint="/api/staff/upload"
+                        label="Foto"
+                        aspect="square"
+                    />
+                    {fieldErrors.avatar_url && (
+                        <p className="text-sm text-red-600">{fieldErrors.avatar_url[0]}</p>
+                    )}
 
                     <div className="space-y-2">
                         <Label>Dienstleistungen</Label>

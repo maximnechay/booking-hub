@@ -2,6 +2,15 @@
 
 import { z } from 'zod'
 
+const emptyToNull = (value: unknown) => {
+    if (typeof value !== 'string') {
+        return value
+    }
+
+    const trimmed = value.trim()
+    return trimmed.length === 0 ? null : trimmed
+}
+
 export const createStaffSchema = z.object({
     name: z
         .string()
@@ -13,10 +22,11 @@ export const createStaffSchema = z.object({
         .nullable()
         .optional(),
     phone: z
-        .string()
-        .max(50, 'Telefonnummer zu lang')
-        .nullable()
-        .optional(),
+        .preprocess(emptyToNull, z.string().max(50, 'Telefonnummer zu lang').nullable().optional()),
+    avatar_url: z.preprocess(
+        emptyToNull,
+        z.string().url('Ungültige URL').nullable().optional()
+    ),
     is_active: z.boolean().default(true),
     service_ids: z
         .array(z.string().uuid('Ungültige Service-ID'))
