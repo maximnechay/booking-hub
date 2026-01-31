@@ -6,6 +6,7 @@ import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import ImageUpload from '@/components/ui/image-upload'
 
 interface TenantSettings {
     name: string
@@ -14,6 +15,9 @@ interface TenantSettings {
     phone: string | null
     address: string | null
     logo_url: string | null
+    description: string | null
+    website: string | null
+    cover_image_url: string | null
 }
 
 interface UserSummary {
@@ -202,13 +206,40 @@ export default function SettingsPage() {
                                 />
                             </div>
                             <div className="space-y-2 md:col-span-2">
-                                <Label htmlFor="tenant-logo">Logo URL</Label>
+                                <Label htmlFor="tenant-description">Beschreibung</Label>
                                 <Input
-                                    id="tenant-logo"
-                                    value={tenant?.logo_url || ''}
-                                    onChange={(e) => handleTenantChange('logo_url', e.target.value)}
+                                    id="tenant-description"
+                                    value={tenant?.description || ''}
+                                    onChange={(e) => handleTenantChange('description', e.target.value)}
+                                    placeholder="z.B. Ihr Friseur in Berlin Mitte"
                                 />
                             </div>
+                            <div className="space-y-2 md:col-span-2">
+                                <Label htmlFor="tenant-website">Website</Label>
+                                <Input
+                                    id="tenant-website"
+                                    value={tenant?.website || ''}
+                                    onChange={(e) => handleTenantChange('website', e.target.value)}
+                                    placeholder="https://example.de"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                            <ImageUpload
+                                currentUrl={tenant?.logo_url}
+                                onUploaded={(url) => handleTenantChange('logo_url', url ?? '')}
+                                uploadType="logo"
+                                label="Logo"
+                                aspect="square"
+                            />
+                            <ImageUpload
+                                currentUrl={tenant?.cover_image_url}
+                                onUploaded={(url) => handleTenantChange('cover_image_url', url ?? '')}
+                                uploadType="cover"
+                                label="Titelbild"
+                                aspect="wide"
+                            />
                         </div>
 
                         <div className="flex gap-4 pt-2">

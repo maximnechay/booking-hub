@@ -20,6 +20,9 @@ export const updateTenantSchema = z.object({
     phone: z.preprocess(emptyToNull, z.string().nullable().optional()),
     address: z.preprocess(emptyToNull, z.string().nullable().optional()),
     logo_url: z.preprocess(emptyToNull, z.string().url('Invalid URL').nullable().optional()),
+    description: z.preprocess(emptyToNull, z.string().nullable().optional()),
+    website: z.preprocess(emptyToNull, z.string().url('Invalid URL').nullable().optional()),
+    cover_image_url: z.preprocess(emptyToNull, z.string().url('Invalid URL').nullable().optional()),
 })
 
 export type UpdateTenantInput = z.infer<typeof updateTenantSchema>
