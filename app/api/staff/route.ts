@@ -5,6 +5,46 @@ import { createClient } from '@/lib/supabase/server'
 import { createStaffSchema } from '@/lib/validations/staff'
 import { PlanService } from '@/lib/services/plan-service'
 
+interface WorkingHourRow {
+    day_of_week: number
+    open_time: string
+    close_time: string
+    is_open: boolean
+}
+
+const buildDefaultScheduleRows = (tenantId: string, staffId: string) =>
+    Array.from({ length: 7 }, (_, dayIndex) => ({
+        tenant_id: tenantId,
+        staff_id: staffId,
+        day_of_week: dayIndex,
+        start_time: '09:00',
+        end_time: '20:00',
+        break_start: null,
+        break_end: null,
+        is_working: dayIndex < 5,
+    }))
+
+const buildScheduleRows = (
+    tenantId: string,
+    staffId: string,
+    workingHours: WorkingHourRow[] | null
+) => {
+    if (!workingHours || workingHours.length === 0) {
+        return buildDefaultScheduleRows(tenantId, staffId)
+    }
+
+    return workingHours.map(day => ({
+        tenant_id: tenantId,
+        staff_id: staffId,
+        day_of_week: day.day_of_week,
+        start_time: day.open_time,
+        end_time: day.close_time,
+        break_start: null,
+        break_end: null,
+        is_working: day.is_open,
+    }))
+}
+
 // GET /api/staff
 export async function GET() {
     try {
@@ -94,6 +134,17 @@ export async function POST(request: NextRequest) {
 
         const { service_ids, ...staffData } = validationResult.data
 
+        const { data: workingHours, error: workingHoursError } = await supabase
+            .from('working_hours')
+            .select('day_of_week, open_time, close_time, is_open')
+            .eq('tenant_id', userData.tenant_id)
+            .order('day_of_week', { ascending: true })
+
+        if (workingHoursError) {
+            console.error('Working hours fetch error:', workingHoursError)
+            return NextResponse.json({ error: 'Failed to load tenant working hours' }, { status: 500 })
+        }
+
         // Создаём мастера
         const { data: staff, error } = await supabase
             .from('staff')
@@ -107,6 +158,24 @@ export async function POST(request: NextRequest) {
         if (error) {
             console.error('Staff creation error:', error)
             return NextResponse.json({ error: 'Failed to create staff' }, { status: 500 })
+        }
+
+        const defaultScheduleRows = buildScheduleRows(
+            userData.tenant_id,
+            staff.id,
+            (workingHours as WorkingHourRow[]) ?? null
+        )
+        const { error: scheduleError } = await supabase
+            .from('staff_schedule')
+            .insert(defaultScheduleRows)
+
+        if (scheduleError) {
+            console.error('Staff schedule creation error:', scheduleError)
+            await supabase
+                .from('staff')
+                .delete()
+                .eq('id', staff.id)
+            return NextResponse.json({ error: 'Failed to create staff schedule' }, { status: 500 })
         }
 
         // Привязываем услуги
