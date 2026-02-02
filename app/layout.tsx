@@ -12,9 +12,55 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://bookinghub.de";
+
 export const metadata: Metadata = {
-  title: "BookingHub - Online-Terminbuchung für Dienstleister",
-  description: "Das moderne Buchungssystem für Dienstleister. Lassen Sie Ihre Kunden Termine online buchen und sparen Sie Zeit.",
+  metadataBase: new URL(baseUrl),
+  title: {
+    default: "BookingHub - Online-Terminbuchung für Dienstleister",
+    template: "%s | BookingHub",
+  },
+  description:
+    "Das moderne Buchungssystem für Dienstleister. Lassen Sie Ihre Kunden Termine online buchen und sparen Sie Zeit.",
+  keywords: [
+    "Online-Terminbuchung",
+    "Buchungssystem",
+    "Terminplaner",
+    "Dienstleister",
+    "Friseur",
+    "Kosmetik",
+    "Salon",
+    "Booking",
+  ],
+  authors: [{ name: "BookingHub" }],
+  creator: "BookingHub",
+  openGraph: {
+    type: "website",
+    locale: "de_DE",
+    siteName: "BookingHub",
+    title: "BookingHub - Online-Terminbuchung für Dienstleister",
+    description:
+      "Das moderne Buchungssystem für Dienstleister. Lassen Sie Ihre Kunden Termine online buchen und sparen Sie Zeit.",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "BookingHub - Online-Terminbuchung",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "BookingHub - Online-Terminbuchung für Dienstleister",
+    description:
+      "Das moderne Buchungssystem für Dienstleister. Lassen Sie Ihre Kunden Termine online buchen und sparen Sie Zeit.",
+    images: ["/og-image.png"],
+  },
+  robots: {
+    index: true,
+    follow: true,
+  },
 };
 
 export default function RootLayout({
@@ -23,7 +69,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="de">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
