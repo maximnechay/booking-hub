@@ -70,8 +70,12 @@ export type Database = {
           expires_at: string | null
           id: string
           notes: string | null
+          original_end_time: string | null
+          original_start_time: string | null
           price_at_booking: number
           reminder_sent_at: string | null
+          reschedule_token: string | null
+          rescheduled_at: string | null
           review_email_sent_at: string | null
           service_id: string
           source: string | null
@@ -82,6 +86,7 @@ export type Database = {
           time_range: unknown
           updated_at: string | null
           variant_id: string | null
+          was_rescheduled: boolean | null
         }
         Insert: {
           cancel_token?: string | null
@@ -96,8 +101,12 @@ export type Database = {
           expires_at?: string | null
           id?: string
           notes?: string | null
+          original_end_time?: string | null
+          original_start_time?: string | null
           price_at_booking: number
           reminder_sent_at?: string | null
+          reschedule_token?: string | null
+          rescheduled_at?: string | null
           review_email_sent_at?: string | null
           service_id: string
           source?: string | null
@@ -108,6 +117,7 @@ export type Database = {
           time_range?: unknown
           updated_at?: string | null
           variant_id?: string | null
+          was_rescheduled?: boolean | null
         }
         Update: {
           cancel_token?: string | null
@@ -122,8 +132,12 @@ export type Database = {
           expires_at?: string | null
           id?: string
           notes?: string | null
+          original_end_time?: string | null
+          original_start_time?: string | null
           price_at_booking?: number
           reminder_sent_at?: string | null
+          reschedule_token?: string | null
+          rescheduled_at?: string | null
           review_email_sent_at?: string | null
           service_id?: string
           source?: string | null
@@ -134,6 +148,7 @@ export type Database = {
           time_range?: unknown
           updated_at?: string | null
           variant_id?: string | null
+          was_rescheduled?: boolean | null
         }
         Relationships: [
           {
@@ -666,6 +681,7 @@ export type Database = {
           is_active: boolean | null
           logo_url: string | null
           name: string
+          og_image_url: string | null
           phone: string | null
           plan_id: string | null
           settings: Json | null
@@ -689,6 +705,7 @@ export type Database = {
           is_active?: boolean | null
           logo_url?: string | null
           name: string
+          og_image_url?: string | null
           phone?: string | null
           plan_id?: string | null
           settings?: Json | null
@@ -712,6 +729,7 @@ export type Database = {
           is_active?: boolean | null
           logo_url?: string | null
           name?: string
+          og_image_url?: string | null
           phone?: string | null
           plan_id?: string | null
           settings?: Json | null

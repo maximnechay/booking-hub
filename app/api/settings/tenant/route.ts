@@ -26,7 +26,7 @@ export async function GET() {
 
         const { data: tenant, error } = await supabase
             .from('tenants')
-            .select('id, name, slug, email, phone, address, logo_url, description, website, cover_image_url')
+            .select('id, name, slug, email, phone, address, logo_url, description, website, cover_image_url, og_image_url')
             .eq('id', userData.tenant_id)
             .single()
 
@@ -79,7 +79,7 @@ export async function PUT(request: NextRequest) {
             .from('tenants')
             .update(validationResult.data)
             .eq('id', userData.tenant_id)
-            .select('id, name, slug, email, phone, address, logo_url, description, website, cover_image_url')
+            .select('id, name, slug, email, phone, address, logo_url, description, website, cover_image_url, og_image_url')
             .single()
 
         if (error) {

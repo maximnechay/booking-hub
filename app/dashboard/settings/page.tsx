@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import ImageUpload from '@/components/ui/image-upload'
+import OgImageUpload from './og-image-upload'
 
 interface TenantSettings {
     name: string
@@ -18,6 +19,7 @@ interface TenantSettings {
     description: string | null
     website: string | null
     cover_image_url: string | null
+    og_image_url: string | null
 }
 
 interface UserSummary {
@@ -248,6 +250,18 @@ export default function SettingsPage() {
                             </Button>
                         </div>
                     </form>
+                </div>
+
+                <div className="bg-white rounded-lg shadow p-6">
+                    <OgImageUpload
+                        currentImage={tenant?.og_image_url ?? null}
+                        onUpdate={() => {
+                            // Reload tenant data
+                            fetch('/api/settings/tenant')
+                                .then(res => res.json())
+                                .then(data => { if (data.tenant) setTenant(data.tenant) })
+                        }}
+                    />
                 </div>
 
                 <div className="bg-white rounded-lg shadow p-6">
