@@ -39,6 +39,20 @@ export const rateLimiters = {
         limiter: Ratelimit.slidingWindow(120, '1 m'), // 120 req/min
         prefix: 'rl:widget:read',
     }),
+
+    // Reschedule: получение данных записи и слотов
+    rescheduleGet: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(30, '1 m'), // 30 req/min
+        prefix: 'rl:reschedule:get',
+    }),
+
+    // Reschedule: выполнение переноса — строго
+    reschedulePost: new Ratelimit({
+        redis,
+        limiter: Ratelimit.slidingWindow(5, '1 m'), // 5 req/min
+        prefix: 'rl:reschedule:post',
+    }),
 }
 
 // Получение IP из request

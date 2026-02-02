@@ -13,6 +13,10 @@ function generateCancelToken(): string {
     return randomBytes(32).toString('base64url')
 }
 
+function generateRescheduleToken(): string {
+    return randomBytes(32).toString('base64url')
+}
+
 interface RouteParams {
     params: Promise<{ slug: string }>
 }
@@ -175,8 +179,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             .eq('id', hold.staff_id)
             .single()
 
-        // Создаём реальный booking с токеном отмены
+        // Создаём реальный booking с токенами отмены и переноса
         const cancelToken = generateCancelToken()
+        const rescheduleToken = generateRescheduleToken()
 
         const { data: booking, error: bookingError } = await supabaseAdmin
             .from('bookings')
@@ -196,6 +201,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 duration_at_booking: duration,
                 source: 'widget',
                 cancel_token: cancelToken,
+                reschedule_token: rescheduleToken,
                 consent_given_at: data.consent_given_at,
             })
             .select('id, start_time, end_time, status')
@@ -252,6 +258,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         if (data.client_email) {
             const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://booking-hub.vercel.app'
             const cancelUrl = `${baseUrl}/cancel/${cancelToken}`
+            const rescheduleUrl = `${baseUrl}/reschedule/${rescheduleToken}`
 
             sendBookingConfirmation({
                 clientName: data.client_name,
@@ -265,6 +272,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 salonAddress: tenant.address || undefined,
                 salonPhone: tenant.phone || undefined,
                 cancelUrl,
+                rescheduleUrl,
             }).then(result => {
                 if (result.success) {
                     console.log(`📧 Confirmation email sent for booking ${booking.id}`)

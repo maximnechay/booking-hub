@@ -80,6 +80,7 @@ export async function POST(request: NextRequest) {
         const endTime = new Date(startTime.getTime() + data.duration * 60 * 1000)
 
         const cancelToken = randomBytes(32).toString('base64url')
+        const rescheduleToken = randomBytes(32).toString('base64url')
 
         const { data: booking, error: insertError } = await supabaseAdmin
             .from('bookings')
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
                 duration_at_booking: data.duration,
                 source: 'dashboard',
                 cancel_token: cancelToken,
+                reschedule_token: rescheduleToken,
             })
             .select()
             .single()

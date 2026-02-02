@@ -17,6 +17,7 @@ interface BookingData {
     salonAddress?: string
     salonPhone?: string
     cancelUrl?: string
+    rescheduleUrl?: string
 }
 
 export async function sendBookingConfirmation(booking: BookingData) {
@@ -49,6 +50,7 @@ export async function sendBookingConfirmation(booking: BookingData) {
             salonAddress: booking.salonAddress,
             salonPhone: booking.salonPhone,
             cancelUrl: booking.cancelUrl,
+            rescheduleUrl: booking.rescheduleUrl,
         }),
     })
 }

@@ -1,4 +1,4 @@
-// lib/email/templates/booking-confirmation.tsx
+// lib/email/templates/booking-rescheduled.tsx
 
 import {
     Body,
@@ -14,52 +14,53 @@ import {
     Text,
 } from '@react-email/components'
 
-interface BookingConfirmationEmailProps {
+interface BookingRescheduledEmailProps {
     clientName: string
     salonName: string
     serviceName: string
     staffName: string
-    date: string        // "Montag, 6. Januar 2025"
-    time: string        // "14:30"
-    duration: string    // "45 Min."
-    price: string       // "35,00 €"
+    oldDate: string
+    oldTime: string
+    newDate: string
+    newTime: string
+    duration: string
     salonAddress?: string
     salonPhone?: string
     cancelUrl?: string
-    rescheduleUrl?: string
 }
 
-export default function BookingConfirmationEmail({
+export default function BookingRescheduledEmail({
     clientName,
     salonName,
     serviceName,
     staffName,
-    date,
-    time,
+    oldDate,
+    oldTime,
+    newDate,
+    newTime,
     duration,
-    price,
     salonAddress,
     salonPhone,
     cancelUrl,
-    rescheduleUrl,
-}: BookingConfirmationEmailProps) {
+}: BookingRescheduledEmailProps) {
     return (
         <Html>
             <Head />
-            <Preview>Ihre Buchung bei {salonName} am {date} um {time} Uhr</Preview>
+            <Preview>Termin verschoben: {serviceName} am {newDate} um {newTime} Uhr</Preview>
             <Body style={main}>
                 <Container style={container}>
-                    <Heading style={h1}>Buchungsbestätigung</Heading>
+                    <Heading style={h1}>Termin verschoben</Heading>
 
                     <Text style={text}>
                         Hallo {clientName},
                     </Text>
 
                     <Text style={text}>
-                        Ihre Buchung bei <strong>{salonName}</strong> wurde erfolgreich erstellt.
+                        Ihr Termin wurde erfolgreich verschoben.
                     </Text>
 
-                    <Section style={detailsBox}>
+                    <Section style={newDetailsBox}>
+                        <Text style={detailLabel}>NEUER TERMIN</Text>
                         <Text style={detailRow}>
                             <strong>Service:</strong> {serviceName}
                         </Text>
@@ -67,16 +68,23 @@ export default function BookingConfirmationEmail({
                             <strong>Mitarbeiter:</strong> {staffName}
                         </Text>
                         <Text style={detailRow}>
-                            <strong>Datum:</strong> {date}
+                            <strong>Datum:</strong> {newDate}
                         </Text>
                         <Text style={detailRow}>
-                            <strong>Uhrzeit:</strong> {time} Uhr
+                            <strong>Uhrzeit:</strong> {newTime} Uhr
                         </Text>
                         <Text style={detailRow}>
                             <strong>Dauer:</strong> {duration}
                         </Text>
+                    </Section>
+
+                    <Section style={oldDetailsBox}>
+                        <Text style={detailLabel}>ALTER TERMIN (STORNIERT)</Text>
                         <Text style={detailRow}>
-                            <strong>Preis:</strong> {price}
+                            <strong>Datum:</strong> {oldDate}
+                        </Text>
+                        <Text style={detailRow}>
+                            <strong>Uhrzeit:</strong> {oldTime} Uhr
                         </Text>
                     </Section>
 
@@ -107,28 +115,20 @@ export default function BookingConfirmationEmail({
 
                     <Hr style={hr} />
 
-                    {(rescheduleUrl || cancelUrl) ? (
-                        <Section style={actionSection}>
+                    {cancelUrl && (
+                        <Section style={cancelSection}>
                             <Text style={textSmall}>
-                                Termin verschieben oder stornieren?
+                                Falls Sie den Termin absagen möchten:
                             </Text>
-                            {rescheduleUrl && (
-                                <Button style={rescheduleButton} href={rescheduleUrl}>
-                                    Termin verschieben
-                                </Button>
-                            )}
-                            {cancelUrl && (
-                                <Button style={cancelButton} href={cancelUrl}>
-                                    Termin stornieren
-                                </Button>
-                            )}
+                            <Button style={cancelButton} href={cancelUrl}>
+                                Termin stornieren
+                            </Button>
                         </Section>
-                    ) : (
-                        <Text style={textSmall}>
-                            Falls Sie den Termin absagen oder verschieben möchten,
-                            kontaktieren Sie uns bitte telefonisch.
-                        </Text>
                     )}
+
+                    <Text style={noteText}>
+                        Hinweis: Ein Termin kann nur einmal verschoben werden.
+                    </Text>
 
                     <Text style={footer}>
                         Mit freundlichen Grüßen,<br />
@@ -140,7 +140,6 @@ export default function BookingConfirmationEmail({
     )
 }
 
-// Styles
 const main = {
     backgroundColor: '#f6f9fc',
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
@@ -180,11 +179,29 @@ const link = {
     textDecoration: 'underline',
 }
 
-const detailsBox = {
-    backgroundColor: '#f9fafb',
+const detailLabel = {
+    color: '#6b7280',
+    fontSize: '12px',
+    fontWeight: '600',
+    letterSpacing: '0.05em',
+    textTransform: 'uppercase' as const,
+    margin: '0 0 12px',
+}
+
+const newDetailsBox = {
+    backgroundColor: '#f0fdf4',
     borderRadius: '8px',
     padding: '20px',
-    margin: '24px 0',
+    margin: '24px 0 16px',
+    borderLeft: '4px solid #22c55e',
+}
+
+const oldDetailsBox = {
+    backgroundColor: '#fef2f2',
+    borderRadius: '8px',
+    padding: '20px',
+    margin: '0 0 24px',
+    borderLeft: '4px solid #ef4444',
 }
 
 const detailRow = {
@@ -199,29 +216,9 @@ const hr = {
     margin: '24px 0',
 }
 
-const footer = {
-    color: '#6b7280',
-    fontSize: '14px',
-    lineHeight: '22px',
-    marginTop: '32px',
-}
-
-const actionSection = {
+const cancelSection = {
     textAlign: 'center' as const,
     margin: '16px 0',
-}
-
-const rescheduleButton = {
-    backgroundColor: '#2563eb',
-    borderRadius: '6px',
-    color: '#ffffff',
-    fontSize: '14px',
-    fontWeight: '500',
-    padding: '10px 20px',
-    textDecoration: 'none',
-    display: 'inline-block',
-    marginTop: '8px',
-    marginRight: '8px',
 }
 
 const cancelButton = {
@@ -234,4 +231,19 @@ const cancelButton = {
     textDecoration: 'none',
     display: 'inline-block',
     marginTop: '8px',
+}
+
+const noteText = {
+    color: '#9ca3af',
+    fontSize: '13px',
+    lineHeight: '20px',
+    margin: '16px 0',
+    fontStyle: 'italic',
+}
+
+const footer = {
+    color: '#6b7280',
+    fontSize: '14px',
+    lineHeight: '22px',
+    marginTop: '32px',
 }
