@@ -26,6 +26,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const staffId = searchParams.get('staff_id')
         const date = searchParams.get('date')
 
+        const isAnyStaff = staffId === '_any'
+
         if (!serviceId || !staffId || !date) {
             return NextResponse.json({
                 error: 'service_id, staff_id and date are required'
@@ -92,28 +94,65 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ slots: [], reason: 'Salon geschlossen' })
         }
 
-        // Проверяем blocked_dates для мастера
-        const { data: staffBlocked } = await supabaseAdmin
-            .from('blocked_dates')
-            .select('id')
-            .eq('tenant_id', tenant.id)
-            .eq('staff_id', staffId)
-            .eq('blocked_date', date)
-            .single()
+        // Определяем список мастеров
+        let staffIds: string[] = []
+        if (isAnyStaff) {
+            const { data: staffServices } = await supabaseAdmin
+                .from('staff_services')
+                .select('staff_id')
+                .eq('service_id', serviceId)
 
-        if (staffBlocked) {
-            return NextResponse.json({ slots: [], reason: 'Mitarbeiter nicht verfügbar' })
+            if (!staffServices || staffServices.length === 0) {
+                return NextResponse.json({ slots: [] })
+            }
+
+            const { data: activeStaff } = await supabaseAdmin
+                .from('staff')
+                .select('id')
+                .eq('tenant_id', tenant.id)
+                .eq('is_active', true)
+                .in('id', staffServices.map(ss => ss.staff_id))
+
+            staffIds = (activeStaff || []).map(s => s.id)
+        } else {
+            staffIds = [staffId!]
         }
 
-        // Получаем расписание мастера на этот день
-        const { data: schedule } = await supabaseAdmin
+        if (staffIds.length === 0) {
+            return NextResponse.json({ slots: [] })
+        }
+
+        // Проверяем blocked_dates для мастеров
+        const { data: staffBlockedDates } = await supabaseAdmin
+            .from('blocked_dates')
+            .select('staff_id')
+            .eq('tenant_id', tenant.id)
+            .eq('blocked_date', date)
+            .in('staff_id', staffIds)
+
+        const blockedStaffIds = new Set((staffBlockedDates || []).map(b => b.staff_id))
+        const availableStaffIds = staffIds.filter(id => !blockedStaffIds.has(id))
+
+        if (availableStaffIds.length === 0) {
+            return NextResponse.json({ slots: [], reason: isAnyStaff ? 'Keine Mitarbeiter verfügbar' : 'Mitarbeiter nicht verfügbar' })
+        }
+
+        // Получаем расписания мастеров на этот день
+        const { data: schedules } = await supabaseAdmin
             .from('staff_schedule')
             .select('*')
-            .eq('staff_id', staffId)
+            .in('staff_id', availableStaffIds)
             .eq('day_of_week', dayOfWeek)
-            .single()
 
-        if (!schedule || !schedule.is_working) {
+        const scheduleByStaff = new Map<string, NonNullable<typeof schedules>[number]>()
+        schedules?.forEach(s => scheduleByStaff.set(s.staff_id, s))
+
+        const workingStaffIds = availableStaffIds.filter(id => {
+            const s = scheduleByStaff.get(id)
+            return s && s.is_working
+        })
+
+        if (workingStaffIds.length === 0) {
             return NextResponse.json({ slots: [], reason: 'Kein Arbeitstag' })
         }
 
@@ -123,89 +162,83 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
         const { data: bookings } = await supabaseAdmin
             .from('bookings')
-            .select('start_time, end_time')
-            .eq('staff_id', staffId)
+            .select('staff_id, start_time, end_time')
+            .in('staff_id', workingStaffIds)
             .gte('start_time', dayStart)
             .lte('start_time', dayEnd)
             .in('status', ['pending', 'confirmed'])
 
-        // Получаем существующие HOLDS на этот день
         const { data: holds } = await supabaseAdmin
             .from('slot_holds')
-            .select('start_time, end_time')
-            .eq('staff_id', staffId)
+            .select('staff_id, start_time, end_time')
+            .in('staff_id', workingStaffIds)
             .gte('start_time', dayStart)
             .lte('start_time', dayEnd)
-            .gt('expires_at', new Date().toISOString()) // только активные
+            .gt('expires_at', new Date().toISOString())
 
-        // Объединяем занятые слоты
-        const occupiedSlots = [
-            ...(bookings || []),
-            ...(holds || [])
-        ]
+        const occupiedByStaff = new Map<string, { start_time: string; end_time: string }[]>()
+        ;[...(bookings || []), ...(holds || [])].forEach(item => {
+            const sId = (item as any).staff_id as string
+            const list = occupiedByStaff.get(sId) || []
+            list.push(item)
+            occupiedByStaff.set(sId, list)
+        })
 
-        // Генерируем слоты
-        const slots: string[] = []
+        const allSlots = new Set<string>()
         const slotInterval = 15
-
-        const [startHour, startMin] = schedule.start_time.split(':').map(Number)
-        const [endHour, endMin] = schedule.end_time.split(':').map(Number)
-
-        let breakStart: number | null = null
-        let breakEnd: number | null = null
-
-        if (schedule.break_start && schedule.break_end) {
-            const [bsH, bsM] = schedule.break_start.split(':').map(Number)
-            const [beH, beM] = schedule.break_end.split(':').map(Number)
-            breakStart = bsH * 60 + bsM
-            breakEnd = beH * 60 + beM
-        }
-
-        const workStart = startHour * 60 + startMin
-        const workEnd = endHour * 60 + endMin
-
-        // Минимальное время бронирования с учётом min_advance_hours
         const minBookingTime = new Date(Date.now() + minAdvanceHours * 60 * 60 * 1000)
 
-        for (let time = workStart; time + totalDuration <= workEnd; time += slotInterval) {
-            // Проверяем min_advance_hours
-            const slotDateTime = new Date(`${date}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
+        for (const sId of workingStaffIds) {
+            const schedule = scheduleByStaff.get(sId)!
 
-            if (slotDateTime < minBookingTime) {
-                continue
+            const [startHour, startMin] = schedule.start_time.split(':').map(Number)
+            const [endHour, endMin] = schedule.end_time.split(':').map(Number)
+            const workStart = startHour * 60 + startMin
+            const workEnd = endHour * 60 + endMin
+
+            let breakStart: number | null = null
+            let breakEnd: number | null = null
+
+            if (schedule.break_start && schedule.break_end) {
+                const [bsH, bsM] = schedule.break_start.split(':').map(Number)
+                const [beH, beM] = schedule.break_end.split(':').map(Number)
+                breakStart = bsH * 60 + bsM
+                breakEnd = beH * 60 + beM
             }
 
-            // Проверяем перерыв
-            if (breakStart !== null && breakEnd !== null) {
-                const slotEnd = time + totalDuration
-                if (time < breakEnd && slotEnd > breakStart) {
-                    continue
+            const occupiedSlots = occupiedByStaff.get(sId) || []
+
+            for (let time = workStart; time + totalDuration <= workEnd; time += slotInterval) {
+                const slotDateTime = new Date(`${date}T${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}:00`)
+                if (slotDateTime < minBookingTime) continue
+
+                if (breakStart !== null && breakEnd !== null) {
+                    const slotEnd = time + totalDuration
+                    if (time < breakEnd && slotEnd > breakStart) continue
                 }
-            }
 
-            // Проверяем пересечение с занятыми слотами
-            const slotStart = slotDateTime
-            const slotEnd = new Date(slotStart.getTime() + totalDuration * 60 * 1000)
+                const slotStart = slotDateTime
+                const slotEnd = new Date(slotStart.getTime() + totalDuration * 60 * 1000)
 
-            let isAvailable = true
-
-            for (const occupied of occupiedSlots) {
-                const occStart = new Date(occupied.start_time)
-                const occEnd = new Date(occupied.end_time)
-
-                if (slotStart < occEnd && slotEnd > occStart) {
-                    isAvailable = false
-                    break
+                let isAvailable = true
+                for (const occupied of occupiedSlots) {
+                    const occStart = new Date(occupied.start_time)
+                    const occEnd = new Date(occupied.end_time)
+                    if (slotStart < occEnd && slotEnd > occStart) {
+                        isAvailable = false
+                        break
+                    }
                 }
-            }
 
-            if (isAvailable) {
-                const hours = String(Math.floor(time / 60)).padStart(2, '0')
-                const mins = String(time % 60).padStart(2, '0')
-                slots.push(`${hours}:${mins}`)
+                if (isAvailable) {
+                    const hours = String(Math.floor(time / 60)).padStart(2, '0')
+                    const mins = String(time % 60).padStart(2, '0')
+                    allSlots.add(`${hours}:${mins}`)
+                }
             }
         }
 
+        const slots = Array.from(allSlots).sort()
         return NextResponse.json({ slots })
     } catch (error) {
         console.error('Widget slots error:', error)

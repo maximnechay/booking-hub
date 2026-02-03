@@ -13,7 +13,7 @@ interface RouteParams {
 const reserveSchema = z.object({
     service_id: z.string().uuid(),
     variant_id: z.string().uuid().nullable().optional(),
-    staff_id: z.string().uuid(),
+    staff_id: z.union([z.string().uuid(), z.literal('_any')]),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     time: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
 })
@@ -129,22 +129,154 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         // Генерируем уникальный токен сессии
         const sessionToken = randomBytes(32).toString('hex')
 
-        // Проверяем нет ли уже реального бронирования на это время
-        const { data: existingBooking } = await supabaseAdmin
-            .from('bookings')
-            .select('id')
-            .eq('staff_id', data.staff_id)
-            .in('status', ['pending', 'confirmed'])
-            .lt('start_time', endTime.toISOString())
-            .gt('end_time', startTime.toISOString())
-            .limit(1)
-            .single()
+        const isAnyStaff = data.staff_id === '_any'
+        let assignedStaffId: string
+        let assignedStaffName: string | null = null
 
-        if (existingBooking) {
-            return NextResponse.json({
-                error: 'SLOT_TAKEN',
-                message: 'Dieser Zeitslot ist bereits gebucht.'
-            }, { status: 409 })
+        if (isAnyStaff) {
+            // Находим всех мастеров, которые могут выполнить услугу
+            const { data: staffServices } = await supabaseAdmin
+                .from('staff_services')
+                .select('staff_id')
+                .eq('service_id', data.service_id)
+
+            if (!staffServices || staffServices.length === 0) {
+                return NextResponse.json({
+                    error: 'NO_STAFF',
+                    message: 'Kein Mitarbeiter für diesen Service verfügbar.'
+                }, { status: 404 })
+            }
+
+            const { data: activeStaff } = await supabaseAdmin
+                .from('staff')
+                .select('id, name')
+                .eq('tenant_id', tenant.id)
+                .eq('is_active', true)
+                .in('id', staffServices.map(ss => ss.staff_id))
+
+            if (!activeStaff || activeStaff.length === 0) {
+                return NextResponse.json({
+                    error: 'NO_STAFF',
+                    message: 'Kein Mitarbeiter verfügbar.'
+                }, { status: 404 })
+            }
+
+            // Проверяем blocked_dates
+            const { data: blockedDates } = await supabaseAdmin
+                .from('blocked_dates')
+                .select('staff_id')
+                .eq('tenant_id', tenant.id)
+                .eq('blocked_date', data.date)
+                .in('staff_id', activeStaff.map(s => s.id))
+
+            const blockedStaffIds = new Set((blockedDates || []).map(b => b.staff_id))
+            const availableStaff = activeStaff.filter(s => !blockedStaffIds.has(s.id))
+
+            if (availableStaff.length === 0) {
+                return NextResponse.json({
+                    error: 'SLOT_TAKEN',
+                    message: 'Kein Mitarbeiter an diesem Tag verfügbar.'
+                }, { status: 409 })
+            }
+
+            // Проверяем расписание и занятость для каждого мастера
+            const dayOfWeek = (new Date(data.date).getDay() + 6) % 7
+
+            const { data: schedules } = await supabaseAdmin
+                .from('staff_schedule')
+                .select('*')
+                .in('staff_id', availableStaff.map(s => s.id))
+                .eq('day_of_week', dayOfWeek)
+
+            const scheduleByStaff = new Map<string, NonNullable<typeof schedules>[number]>()
+            schedules?.forEach(s => scheduleByStaff.set(s.staff_id, s))
+
+            // Ищем первого свободного мастера
+            let foundStaff: { id: string; name: string } | null = null
+
+            for (const staff of availableStaff) {
+                const schedule = scheduleByStaff.get(staff.id)
+                if (!schedule || !schedule.is_working) continue
+
+                const [startH, startM] = schedule.start_time.split(':').map(Number)
+                const [endH, endM] = schedule.end_time.split(':').map(Number)
+                const workStart = startH * 60 + startM
+                const workEnd = endH * 60 + endM
+
+                const [slotH, slotM] = data.time.split(':').map(Number)
+                const slotMinutes = slotH * 60 + slotM
+
+                // Слот не влезает в рабочий день
+                if (slotMinutes < workStart || slotMinutes + totalDuration > workEnd) continue
+
+                // Проверяем перерыв
+                if (schedule.break_start && schedule.break_end) {
+                    const [bsH, bsM] = schedule.break_start.split(':').map(Number)
+                    const [beH, beM] = schedule.break_end.split(':').map(Number)
+                    const breakStart = bsH * 60 + bsM
+                    const breakEnd = beH * 60 + beM
+                    if (slotMinutes < breakEnd && slotMinutes + totalDuration > breakStart) continue
+                }
+
+                // Проверяем конфликт с существующими бронями
+                const { data: conflict } = await supabaseAdmin
+                    .from('bookings')
+                    .select('id')
+                    .eq('staff_id', staff.id)
+                    .in('status', ['pending', 'confirmed'])
+                    .lt('start_time', endTime.toISOString())
+                    .gt('end_time', startTime.toISOString())
+                    .limit(1)
+                    .single()
+
+                if (conflict) continue
+
+                // Проверяем конфликт с holds
+                const { data: holdConflict } = await supabaseAdmin
+                    .from('slot_holds')
+                    .select('id')
+                    .eq('staff_id', staff.id)
+                    .lt('start_time', endTime.toISOString())
+                    .gt('end_time', startTime.toISOString())
+                    .gt('expires_at', new Date().toISOString())
+                    .limit(1)
+                    .single()
+
+                if (holdConflict) continue
+
+                foundStaff = staff
+                break
+            }
+
+            if (!foundStaff) {
+                return NextResponse.json({
+                    error: 'SLOT_TAKEN',
+                    message: 'Dieser Zeitslot ist bei keinem Mitarbeiter mehr verfügbar.'
+                }, { status: 409 })
+            }
+
+            assignedStaffId = foundStaff.id
+            assignedStaffName = foundStaff.name
+        } else {
+            assignedStaffId = data.staff_id
+
+            // Проверяем нет ли уже реального бронирования на это время
+            const { data: existingBooking } = await supabaseAdmin
+                .from('bookings')
+                .select('id')
+                .eq('staff_id', assignedStaffId)
+                .in('status', ['pending', 'confirmed'])
+                .lt('start_time', endTime.toISOString())
+                .gt('end_time', startTime.toISOString())
+                .limit(1)
+                .single()
+
+            if (existingBooking) {
+                return NextResponse.json({
+                    error: 'SLOT_TAKEN',
+                    message: 'Dieser Zeitslot ist bereits gebucht.'
+                }, { status: 409 })
+            }
         }
 
         // Создаём hold в slot_holds
@@ -154,7 +286,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 tenant_id: tenant.id,
                 service_id: data.service_id,
                 variant_id: data.variant_id || null,
-                staff_id: data.staff_id,
+                staff_id: assignedStaffId,
                 start_time: startTime.toISOString(),
                 end_time: endTime.toISOString(),
                 expires_at: expiresAt.toISOString(),
@@ -186,6 +318,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 session_token: hold.session_token,
                 expires_at: hold.expires_at,
             },
+            ...(assignedStaffName ? { assigned_staff_name: assignedStaffName } : {}),
             message: 'Zeitslot reserviert. Sie haben 15 Minuten.'
         }, { status: 201 })
 

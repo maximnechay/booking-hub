@@ -12,7 +12,7 @@ import { Turnstile } from '@/components/ui/turnstile'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ArrowLeft, Check, Clock, User, Loader2, ChevronRight, Scissors, Eye, Sparkles, Heart, Sun, Hand, List, X } from 'lucide-react'
+import { ArrowLeft, Check, Clock, User, Users, Loader2, ChevronRight, Scissors, Eye, Sparkles, Heart, Sun, Hand, List, X } from 'lucide-react'
 import 'react-day-picker/dist/style.css'
 
 interface Variant {
@@ -345,6 +345,11 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
             // ИЗМЕНЕНО: Сохраняем hold_id и session_token
             setHoldId(data.hold.id)
             setSessionToken(data.hold.session_token)
+
+            // Если был выбран "Beliebiger Mitarbeiter", обновляем имя на реального мастера
+            if (data.assigned_staff_name) {
+                setSelectedStaff(prev => prev ? { ...prev, name: data.assigned_staff_name } : prev)
+            }
 
             const expiresDate = new Date(data.hold.expires_at)
             setExpiresAt(expiresDate)
@@ -784,6 +789,22 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                 </div>
                             ) : (
                                 <>
+                                    {staff.length > 1 && (
+                                        <button
+                                            onClick={() => handleStaffSelect({ id: '_any', name: 'Beliebiger Mitarbeiter', avatar_url: null })}
+                                            className="w-full bg-white border border-dashed rounded-lg p-4 text-left hover:border-blue-500 hover:shadow transition-all"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center">
+                                                    <Users className="h-6 w-6 text-blue-600" />
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-gray-900">Beliebiger Mitarbeiter</p>
+                                                    <p className="text-sm text-gray-500">Nächster verfügbarer Termin</p>
+                                                </div>
+                                            </div>
+                                        </button>
+                                    )}
                                     {staff.map((member) => (
                                         <button
                                             key={member.id}
