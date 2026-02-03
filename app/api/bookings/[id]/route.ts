@@ -66,7 +66,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 }
 
-// DELETE /api/bookings/[id] (отмена)
+// DELETE /api/bookings/[id] (полное удаление)
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
     try {
         const { id } = await params
@@ -95,7 +95,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         // Проверяем что букинг существует
         const { data: booking } = await supabase
             .from('bookings')
-            .select('id, status')
+            .select('id')
             .eq('id', id)
             .eq('tenant_id', userData.tenant_id)
             .single()
@@ -104,23 +104,19 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
         }
 
-        // Soft delete — отменяем букинг
-        const { error: updateError } = await supabase
+        // Полное удаление
+        const { error: deleteError } = await supabase
             .from('bookings')
-            .update({
-                status: 'cancelled',
-                cancelled_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
+            .delete()
             .eq('id', id)
             .eq('tenant_id', userData.tenant_id)
 
-        if (updateError) {
-            console.error('Booking delete error:', updateError)
-            return NextResponse.json({ error: 'Failed to cancel booking' }, { status: 500 })
+        if (deleteError) {
+            console.error('Booking delete error:', deleteError)
+            return NextResponse.json({ error: 'Failed to delete booking' }, { status: 500 })
         }
 
-        return NextResponse.json({ success: true, message: 'Buchung storniert' })
+        return NextResponse.json({ success: true, message: 'Buchung gelöscht' })
     } catch (error) {
         console.error('Booking DELETE error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

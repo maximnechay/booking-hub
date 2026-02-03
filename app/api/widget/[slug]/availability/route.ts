@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -22,6 +23,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             return NextResponse.json({
                 error: 'service_id, staff_id, from and to are required'
             }, { status: 400 })
+        }
+
+        // Rate limiting
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetSlots, rateLimitKey)
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
         }
 
         const { data: tenant } = await supabaseAdmin
@@ -65,6 +73,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 .from('staff_services')
                 .select('staff_id')
                 .eq('service_id', serviceId)
+                .eq('tenant_id', tenant.id)
 
             if (!staffServices || staffServices.length === 0) {
                 const fromDate = new Date(from)
@@ -87,6 +96,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
             staffIds = (activeStaff || []).map(s => s.id)
         } else {
+            const { data: staff } = await supabaseAdmin
+                .from('staff')
+                .select('id')
+                .eq('id', staffId)
+                .eq('tenant_id', tenant.id)
+                .eq('is_active', true)
+                .single()
+
+            if (!staff) {
+                return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+            }
+
+            const { data: staffService } = await supabaseAdmin
+                .from('staff_services')
+                .select('staff_id')
+                .eq('tenant_id', tenant.id)
+                .eq('service_id', serviceId)
+                .eq('staff_id', staffId)
+                .single()
+
+            if (!staffService) {
+                return NextResponse.json({ error: 'Staff not available for service' }, { status: 404 })
+            }
+
             staffIds = [staffId!]
         }
 
@@ -116,6 +149,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .from('staff_schedule')
             .select('*')
             .in('staff_id', staffIds)
+            .eq('tenant_id', tenant.id)
 
         const scheduleByStaffAndDay = new Map<string, Map<number, ScheduleRow>>()
         scheduleRows?.forEach(row => {

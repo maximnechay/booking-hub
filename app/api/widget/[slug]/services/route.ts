@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -11,6 +12,13 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
     try {
         const { slug } = await params
+
+        // Rate limiting
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetRead, rateLimitKey)
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
+        }
 
         // Получаем tenant
         const { data: tenant } = await supabaseAdmin

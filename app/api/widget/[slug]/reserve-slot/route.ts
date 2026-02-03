@@ -115,6 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 .select('duration, price')
                 .eq('id', data.variant_id)
                 .eq('service_id', data.service_id)
+                .eq('tenant_id', tenant.id)
                 .single()
 
             if (variant) {
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 .from('staff_services')
                 .select('staff_id')
                 .eq('service_id', data.service_id)
+                .eq('tenant_id', tenant.id)
 
             if (!staffServices || staffServices.length === 0) {
                 return NextResponse.json({
@@ -187,6 +189,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 .select('*')
                 .in('staff_id', availableStaff.map(s => s.id))
                 .eq('day_of_week', dayOfWeek)
+                .eq('tenant_id', tenant.id)
 
             const scheduleByStaff = new Map<string, NonNullable<typeof schedules>[number]>()
             schedules?.forEach(s => scheduleByStaff.set(s.staff_id, s))
@@ -260,6 +263,36 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         } else {
             assignedStaffId = data.staff_id
 
+            const { data: staff } = await supabaseAdmin
+                .from('staff')
+                .select('id')
+                .eq('id', assignedStaffId)
+                .eq('tenant_id', tenant.id)
+                .eq('is_active', true)
+                .single()
+
+            if (!staff) {
+                return NextResponse.json({
+                    error: 'NO_STAFF',
+                    message: 'Mitarbeiter nicht gefunden.'
+                }, { status: 404 })
+            }
+
+            const { data: staffService } = await supabaseAdmin
+                .from('staff_services')
+                .select('staff_id')
+                .eq('tenant_id', tenant.id)
+                .eq('service_id', data.service_id)
+                .eq('staff_id', assignedStaffId)
+                .single()
+
+            if (!staffService) {
+                return NextResponse.json({
+                    error: 'NO_STAFF',
+                    message: 'Mitarbeiter nicht verfügbar.'
+                }, { status: 404 })
+            }
+
             // Проверяем нет ли уже реального бронирования на это время
             const { data: existingBooking } = await supabaseAdmin
                 .from('bookings')
@@ -275,6 +308,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
                 return NextResponse.json({
                     error: 'SLOT_TAKEN',
                     message: 'Dieser Zeitslot ist bereits gebucht.'
+                }, { status: 409 })
+            }
+
+            const { data: holdConflict } = await supabaseAdmin
+                .from('slot_holds')
+                .select('id')
+                .eq('staff_id', assignedStaffId)
+                .lt('start_time', endTime.toISOString())
+                .gt('end_time', startTime.toISOString())
+                .gt('expires_at', new Date().toISOString())
+                .limit(1)
+                .single()
+
+            if (holdConflict) {
+                return NextResponse.json({
+                    error: 'SLOT_TAKEN',
+                    message: 'Dieser Zeitslot ist bereits reserviert.'
                 }, { status: 409 })
             }
         }

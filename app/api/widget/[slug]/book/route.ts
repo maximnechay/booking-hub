@@ -3,6 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { z } from 'zod'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -26,6 +27,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const { slug } = await params
         const body = await request.json()
 
+        // Rate limiting
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetComplete, rateLimitKey)
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
+        }
+
         // Валидация
         const validationResult = bookingSchema.safeParse(body)
         if (!validationResult.success) {
@@ -48,6 +56,30 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
         if (!tenant) {
             return NextResponse.json({ error: 'Salon not found' }, { status: 404 })
+        }
+
+        const { data: staff } = await supabaseAdmin
+            .from('staff')
+            .select('id')
+            .eq('id', data.staff_id)
+            .eq('tenant_id', tenant.id)
+            .eq('is_active', true)
+            .single()
+
+        if (!staff) {
+            return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+        }
+
+        const { data: staffService } = await supabaseAdmin
+            .from('staff_services')
+            .select('staff_id')
+            .eq('tenant_id', tenant.id)
+            .eq('service_id', data.service_id)
+            .eq('staff_id', data.staff_id)
+            .single()
+
+        if (!staffService) {
+            return NextResponse.json({ error: 'Staff not available for service' }, { status: 404 })
         }
 
         // Вычисляем timestamp

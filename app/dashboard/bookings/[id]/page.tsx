@@ -92,6 +92,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
     const [isUpdating, setIsUpdating] = useState(false)
     const [isDeleting, setIsDeleting] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [dangerMode, setDangerMode] = useState(false)
 
     useEffect(() => {
         loadBooking()
@@ -158,7 +159,7 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
 
     async function handleDelete() {
         if (!booking) return
-        if (!confirm('Termin wirklich stornieren?')) {
+        if (!confirm('Buchung wirklich endgültig löschen? Dieser Vorgang kann nicht rückgängig gemacht werden.')) {
             return
         }
 
@@ -406,15 +407,38 @@ export default function BookingDetailPage({ params }: { params: Promise<{ id: st
                                 {action.label}
                             </Button>
                         ))}
-                        <Button
-                            variant="destructive"
-                            onClick={handleDelete}
+                    </div>
+
+                    <div className="mt-4 flex items-center gap-3">
+                        <button
+                            type="button"
+                            role="switch"
+                            aria-checked={dangerMode}
+                            onClick={() => setDangerMode(prev => !prev)}
+                            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${dangerMode ? 'bg-red-500' : 'bg-gray-300'}`}
                             disabled={isUpdating || isDeleting}
                         >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            {isDeleting ? 'Wird storniert...' : 'Stornieren'}
-                        </Button>
+                            <span
+                                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${dangerMode ? 'translate-x-5' : 'translate-x-1'}`}
+                            />
+                        </button>
+                        <span className="text-sm text-gray-600">
+                            Gefahrenmodus
+                        </span>
                     </div>
+
+                    {dangerMode && (
+                        <div className="mt-4">
+                            <Button
+                                variant="destructive"
+                                onClick={handleDelete}
+                                disabled={isUpdating || isDeleting}
+                            >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                {isDeleting ? 'Wird gelöscht...' : 'Vollständig löschen'}
+                            </Button>
+                        </div>
+                    )}
                 </div>
             </div>
 

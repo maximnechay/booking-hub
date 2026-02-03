@@ -101,6 +101,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 .from('staff_services')
                 .select('staff_id')
                 .eq('service_id', serviceId)
+                .eq('tenant_id', tenant.id)
 
             if (!staffServices || staffServices.length === 0) {
                 return NextResponse.json({ slots: [] })
@@ -115,6 +116,30 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
             staffIds = (activeStaff || []).map(s => s.id)
         } else {
+            const { data: staff } = await supabaseAdmin
+                .from('staff')
+                .select('id')
+                .eq('id', staffId)
+                .eq('tenant_id', tenant.id)
+                .eq('is_active', true)
+                .single()
+
+            if (!staff) {
+                return NextResponse.json({ slots: [], reason: 'Mitarbeiter nicht gefunden' }, { status: 404 })
+            }
+
+            const { data: staffService } = await supabaseAdmin
+                .from('staff_services')
+                .select('staff_id')
+                .eq('tenant_id', tenant.id)
+                .eq('service_id', serviceId)
+                .eq('staff_id', staffId)
+                .single()
+
+            if (!staffService) {
+                return NextResponse.json({ slots: [], reason: 'Mitarbeiter nicht verfügbar' }, { status: 404 })
+            }
+
             staffIds = [staffId!]
         }
 
@@ -143,6 +168,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .select('*')
             .in('staff_id', availableStaffIds)
             .eq('day_of_week', dayOfWeek)
+            .eq('tenant_id', tenant.id)
 
         const scheduleByStaff = new Map<string, NonNullable<typeof schedules>[number]>()
         schedules?.forEach(s => scheduleByStaff.set(s.staff_id, s))

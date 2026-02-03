@@ -2,6 +2,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { rateLimiters, checkRateLimit, getRateLimitKey, rateLimitResponse } from '@/lib/security/rate-limit'
 
 interface RouteParams {
     params: Promise<{ slug: string }>
@@ -13,6 +14,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         const { slug } = await params
         const { searchParams } = new URL(request.url)
         const serviceId = searchParams.get('service_id')
+
+        // Rate limiting
+        const rateLimitKey = getRateLimitKey(request, slug)
+        const rateLimit = await checkRateLimit(rateLimiters.widgetRead, rateLimitKey)
+        if (!rateLimit.success) {
+            return rateLimitResponse(rateLimit)
+        }
 
         // Получаем tenant
         const { data: tenant } = await supabaseAdmin
@@ -40,6 +48,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 .from('staff_services')
                 .select('staff_id')
                 .eq('service_id', serviceId)
+                .eq('tenant_id', tenant.id)
 
             if (staffServices && staffServices.length > 0) {
                 const staffIds = staffServices.map(ss => ss.staff_id)
