@@ -885,7 +885,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                                         onSelect={handleDateSelect}
                                         locale={de}
                                         disabled={[
-                                            { before: addDays(today, 1) },
+                                            { before: today },
                                             { after: addDays(today, 60) },
                                             ...unavailableDates,
                                         ]}
