@@ -1,11 +1,15 @@
 import { ImageResponse } from 'next/og'
+import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
-export const alt = 'Online Termin buchen'
-export const size = { width: 1200, height: 630 }
-export const contentType = 'image/png'
+export const dynamic = 'force-dynamic'
 
-export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
+const size = { width: 1200, height: 630 }
+
+export async function GET(
+    _request: NextRequest,
+    { params }: { params: Promise<{ slug: string }> }
+) {
     const { slug } = await params
 
     const { data: tenant } = await supabaseAdmin
@@ -15,17 +19,9 @@ export default async function Image({ params }: { params: Promise<{ slug: string
         .eq('is_active', true)
         .single()
 
-    // If custom OG image exists, proxy it
+    // If custom OG image exists, redirect to it
     if (tenant?.og_image_url) {
-        const response = await fetch(tenant.og_image_url)
-        const imageData = await response.arrayBuffer()
-
-        return new Response(imageData, {
-            headers: {
-                'Content-Type': response.headers.get('Content-Type') || 'image/png',
-                'Cache-Control': 'public, max-age=86400',
-            },
-        })
+        return Response.redirect(tenant.og_image_url, 302)
     }
 
     // Generate dynamic OG image
