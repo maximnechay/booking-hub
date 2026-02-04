@@ -183,7 +183,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
 
         async function checkAvailableDates() {
             const today = startOfDay(new Date())
-            const from = format(addDays(today, 1), 'yyyy-MM-dd')
+            const from = format(today, 'yyyy-MM-dd')
             const to = format(addDays(today, 60), 'yyyy-MM-dd')
 
             setIsDatesLoaded(false)
