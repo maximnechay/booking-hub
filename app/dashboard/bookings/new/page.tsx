@@ -222,7 +222,7 @@ export default function NewBookingPage() {
             </div>
 
             <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
-                <form onSubmit={handleSubmit} className="space-y-6">
+                <form onSubmit={handleSubmit} className="space-y-6" autoComplete="on">
                     {error && (
                         <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
                             {error}
@@ -395,6 +395,8 @@ export default function NewBookingPage() {
                                     <Label htmlFor="client_name">Name *</Label>
                                     <Input
                                         id="client_name"
+                                        name="client_name"
+                                        autoComplete="name"
                                         placeholder="Vor- und Nachname"
                                         value={formData.client_name}
                                         onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
@@ -410,7 +412,9 @@ export default function NewBookingPage() {
                                     <Label htmlFor="client_phone">Telefon *</Label>
                                     <Input
                                         id="client_phone"
+                                        name="client_phone"
                                         type="tel"
+                                        autoComplete="tel"
                                         placeholder="+49 123 456789"
                                         value={formData.client_phone}
                                         onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
@@ -427,7 +431,12 @@ export default function NewBookingPage() {
                                 <Label htmlFor="client_email">E-Mail</Label>
                                 <Input
                                     id="client_email"
+                                    name="email"
                                     type="email"
+                                    autoComplete="email"
+                                    autoCapitalize="none"
+                                    autoCorrect="off"
+                                    spellCheck={false}
                                     placeholder="kunde@beispiel.de"
                                     value={formData.client_email}
                                     onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
