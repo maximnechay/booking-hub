@@ -3,7 +3,7 @@
 
 'use client'
 
-import { useState, useEffect, use, useRef } from 'react'
+import { useState, useEffect, use, useRef, useCallback } from 'react'
 import { DayPicker } from 'react-day-picker'
 import { format, addDays, startOfDay } from 'date-fns'
 import { de } from 'date-fns/locale'
@@ -77,6 +77,35 @@ const iconMap: Record<string, React.ReactNode> = {
     sun: <Sun className="h-5 w-5" />,
 }
 
+function CountdownTimer({ expiresAt, onExpired }: { expiresAt: Date; onExpired: () => void }) {
+    const [timeRemaining, setTimeRemaining] = useState(() =>
+        Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+    )
+
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const remaining = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 1000))
+            setTimeRemaining(remaining)
+            if (remaining === 0) onExpired()
+        }, 1000)
+        return () => clearInterval(interval)
+    }, [expiresAt, onExpired])
+
+    if (timeRemaining <= 0) return null
+
+    const minutes = Math.floor(timeRemaining / 60)
+    const secs = timeRemaining % 60
+
+    return (
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 border border-orange-300 rounded-full">
+            <Clock className="h-3.5 w-3.5 text-orange-600" />
+            <span className="text-sm font-mono font-semibold text-orange-700">
+                {minutes}:{secs.toString().padStart(2, '0')}
+            </span>
+        </div>
+    )
+}
+
 export default function BookingWidget({ params }: { params: Promise<{ slug: string }> }) {
     const { slug } = use(params)
 
@@ -116,11 +145,26 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
     const [website, setWebsite] = useState('') // honeypot
     const [formStartTime, setFormStartTime] = useState<number | null>(null)
 
+    // Загрузка сохранённых данных клиента из localStorage
+    useEffect(() => {
+        try {
+            const saved = localStorage.getItem('bookinghub_client')
+            if (saved) {
+                const parsed = JSON.parse(saved)
+                setFormData(prev => ({
+                    ...prev,
+                    client_name: parsed.client_name || '',
+                    client_phone: parsed.client_phone || '',
+                    client_email: parsed.client_email || '',
+                }))
+            }
+        } catch { }
+    }, [])
+
     // ИЗМЕНЕНО: Hold flow вместо reservation
     const [holdId, setHoldId] = useState<string | null>(null)
     const [sessionToken, setSessionToken] = useState<string | null>(null)
     const [expiresAt, setExpiresAt] = useState<Date | null>(null)
-    const [timeRemaining, setTimeRemaining] = useState<number>(0)
 
     // Загрузка tenant и services
     useEffect(() => {
@@ -237,28 +281,13 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
         loadSlots()
     }, [slug, selectedService, selectedStaff, selectedDate])
 
-    // Таймер для hold
-    useEffect(() => {
-        if (!expiresAt) return
-
-        const interval = setInterval(() => {
-            const now = new Date().getTime()
-            const expires = new Date(expiresAt).getTime()
-            const remaining = Math.max(0, Math.floor((expires - now) / 1000))
-
-            setTimeRemaining(remaining)
-
-            if (remaining === 0) {
-                setError('Die Reservierung ist abgelaufen. Bitte wählen Sie erneut.')
-                setStep('datetime')
-                setHoldId(null)
-                setSessionToken(null)
-                setExpiresAt(null)
-            }
-        }, 1000)
-
-        return () => clearInterval(interval)
-    }, [expiresAt])
+    const handleTimerExpired = useCallback(() => {
+        setError('Die Reservierung ist abgelaufen. Bitte wählen Sie erneut.')
+        setStep('datetime')
+        setHoldId(null)
+        setSessionToken(null)
+        setExpiresAt(null)
+    }, [])
 
     useEffect(() => {
         if (selectedTime && confirmButtonRef.current) {
@@ -351,14 +380,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 setSelectedStaff(prev => prev ? { ...prev, name: data.assigned_staff_name } : prev)
             }
 
-            const expiresDate = new Date(data.hold.expires_at)
-            setExpiresAt(expiresDate)
-
-            // Установить начальное значение таймера
-            const expires = expiresDate.getTime()
-            const now = new Date().getTime()
-            const remaining = Math.max(0, Math.floor((expires - now) / 1000))
-            setTimeRemaining(remaining)
+            setExpiresAt(new Date(data.hold.expires_at))
 
             setFormStartTime(Date.now())
             setStep('form')
@@ -430,6 +452,16 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                 id: data.booking.id,
                 start_time: data.booking.start_time,
             })
+
+            // Сохраняем данные клиента для автозаполнения при следующем визите
+            try {
+                localStorage.setItem('bookinghub_client', JSON.stringify({
+                    client_name: formData.client_name.trim(),
+                    client_phone: formData.client_phone.trim(),
+                    client_email: formData.client_email.trim(),
+                }))
+            } catch { }
+
             setStep('success')
         } catch (err) {
             setError('Ein Fehler ist aufgetreten')
@@ -480,12 +512,6 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
 
     const formatDateLong = (date: Date) => {
         return format(date, "EEEE, d. MMMM yyyy", { locale: de })
-    }
-
-    const formatTimeRemaining = (seconds: number) => {
-        const minutes = Math.floor(seconds / 60)
-        const secs = seconds % 60
-        return `${minutes}:${secs.toString().padStart(2, '0')}`
     }
 
     const getPrice = () => selectedVariant?.price ?? selectedService?.price ?? 0
@@ -998,14 +1024,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                         {/* Компактный таймер */}
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-lg font-semibold">Ihre Daten</h2>
-                            {timeRemaining > 0 && (
-                                <div className="flex items-center gap-2 px-3 py-1.5 bg-orange-100 border border-orange-300 rounded-full">
-                                    <Clock className="h-3.5 w-3.5 text-orange-600" />
-                                    <span className="text-sm font-mono font-semibold text-orange-700">
-                                        {formatTimeRemaining(timeRemaining)}
-                                    </span>
-                                </div>
-                            )}
+                            {expiresAt && <CountdownTimer expiresAt={expiresAt} onExpired={handleTimerExpired} />}
                         </div>
 
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
@@ -1020,7 +1039,7 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
 
                         </div>
 
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
                             {error && (
                                 <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
                                     {error}
@@ -1041,9 +1060,11 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="client_name">Name *</Label>
+                                <Label htmlFor="name">Name *</Label>
                                 <Input
-                                    id="client_name"
+                                    id="name"
+                                    name="name"
+                                    autoComplete="name"
                                     placeholder="Max Mustermann"
                                     value={formData.client_name}
                                     onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
@@ -1052,10 +1073,12 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="client_phone">Telefon *</Label>
+                                <Label htmlFor="tel">Telefon *</Label>
                                 <Input
-                                    id="client_phone"
+                                    id="tel"
+                                    name="tel"
                                     type="tel"
+                                    autoComplete="tel"
                                     placeholder="+49 123 456 7890"
                                     value={formData.client_phone}
                                     onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
@@ -1064,10 +1087,13 @@ export default function BookingWidget({ params }: { params: Promise<{ slug: stri
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="client_email">E-Mail*</Label>
+                                <Label htmlFor="email">E-Mail*</Label>
 
                                 <Input
+                                    id="email"
+                                    name="email"
                                     type="email"
+                                    autoComplete="email"
                                     required
                                     placeholder="erikamustermann@mail.de"
                                     value={formData.client_email}
