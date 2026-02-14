@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { CheckCircle2, Shield, Zap, BadgeCheck } from 'lucide-react'
+import { generateFAQSchema } from '@/lib/seo/json-ld'
 import PricingPlans from '../../components/PricingPlans'
 import SiteHeader from '../../components/SiteHeader'
 import SiteFooter from '../../components/SiteFooter'
@@ -276,6 +277,13 @@ export default function PricingPage() {
         </div>
       </section>
       <SiteFooter />
+
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(generateFAQSchema(faqs)),
+        }}
+      />
     </div>
   )
 }

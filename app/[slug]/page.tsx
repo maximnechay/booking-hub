@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { generateLocalBusinessSchema, generateServiceSchemas } from '@/lib/seo/json-ld'
 import SalonHero from '@/components/salon/SalonHero'
 import SalonInfo from '@/components/salon/SalonInfo'
 import SalonServices from '@/components/salon/SalonServices'
@@ -125,13 +126,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             ? [data.tenant.cover_image_url]
             : []
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bookinghub.de'
+
     return {
         title: `${data.tenant.name} | Online Termin buchen`,
         description: data.tenant.description ||
             `Buchen Sie Ihren Termin bei ${data.tenant.name} online. Schnell, einfach und ohne Wartezeit.`,
+        alternates: {
+            canonical: `${baseUrl}/${slug}`,
+        },
         openGraph: {
             title: data.tenant.name,
             description: data.tenant.description || undefined,
+            url: `${baseUrl}/${slug}`,
+            locale: 'de_DE',
+            type: 'website',
             images: ogImages,
         },
     }
@@ -144,6 +153,21 @@ export default async function SalonPage({ params }: PageProps) {
     if (!data) {
         notFound()
     }
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://bookinghub.de'
+
+    const allServices = [
+        ...data.categories.flatMap((c) => c.services),
+        ...data.uncategorized_services,
+    ]
+
+    const localBusinessSchema = generateLocalBusinessSchema(
+        data.tenant,
+        data.working_hours,
+        baseUrl,
+    )
+
+    const serviceSchemas = generateServiceSchemas(allServices, data.tenant.name)
 
     return (
         <main className="min-h-screen bg-gray-50 pb-20 sm:pb-0">
@@ -176,6 +200,21 @@ export default async function SalonPage({ params }: PageProps) {
             </div>
 
             <LegalFooter />
+
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: JSON.stringify(localBusinessSchema),
+                }}
+            />
+            {serviceSchemas.length > 0 && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify(serviceSchemas),
+                    }}
+                />
+            )}
         </main>
     )
 }
