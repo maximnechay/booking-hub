@@ -17,6 +17,12 @@ const DAY_NAMES = [
     'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag',
     'Freitag', 'Samstag', 'Sonntag',
 ]
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogg']
+
+const isVideoUrl = (url: string): boolean => {
+    const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase()
+    return VIDEO_EXTENSIONS.some(ext => cleanUrl.endsWith(ext))
+}
 
 interface PageProps {
     params: Promise<{ slug: string }>
@@ -114,6 +120,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         return { title: 'Salon nicht gefunden' }
     }
 
+    const ogImages =
+        data.tenant.cover_image_url && !isVideoUrl(data.tenant.cover_image_url)
+            ? [data.tenant.cover_image_url]
+            : []
+
     return {
         title: `${data.tenant.name} | Online Termin buchen`,
         description: data.tenant.description ||
@@ -121,7 +132,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         openGraph: {
             title: data.tenant.name,
             description: data.tenant.description || undefined,
-            images: data.tenant.cover_image_url ? [data.tenant.cover_image_url] : [],
+            images: ogImages,
         },
     }
 }

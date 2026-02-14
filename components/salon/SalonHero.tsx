@@ -7,13 +7,32 @@ interface SalonHeroProps {
     cover_image_url?: string | null
 }
 
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogg']
+
+function isVideoUrl(url: string): boolean {
+    const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase()
+    return VIDEO_EXTENSIONS.some(ext => cleanUrl.endsWith(ext))
+}
+
 export default function SalonHero({ name, description, logo_url, cover_image_url }: SalonHeroProps) {
     const initial = name.charAt(0).toUpperCase()
+    const hasVideoCover = !!cover_image_url && isVideoUrl(cover_image_url)
 
     return (
         <section className="relative w-full h-56 sm:h-72 md:h-80">
             {/* Cover */}
             {cover_image_url ? (
+                hasVideoCover ? (
+                    <video
+                        src={cover_image_url}
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        preload="metadata"
+                        className="absolute inset-0 h-full w-full object-cover"
+                    />
+                ) : (
                 <Image
                     src={cover_image_url}
                     alt={`${name} Cover`}
@@ -21,6 +40,7 @@ export default function SalonHero({ name, description, logo_url, cover_image_url
                     className="object-cover"
                     priority
                 />
+                )
             ) : (
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-blue-400" />
             )}
