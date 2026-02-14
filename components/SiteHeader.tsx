@@ -13,11 +13,23 @@ export default function SiteHeader() {
               </div>
               <span className="font-bold text-xl text-gray-900">BookingHub</span>
             </Link>
+            <div className="hidden md:flex items-center gap-6">
+              <Link href="/pricing" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                Preise
+              </Link>
+              <Link href="/blog" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                Blog
+              </Link>
+              <Link href="/kontakt" className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors">
+                Kontakt
+              </Link>
+            </div>
+
             <div className="flex items-center gap-3">
-              <Link href="/login" className="text-sm font-medium text-gray-600 px-4 py-2">
+              <Link href="/login" className="hidden sm:inline-flex text-sm font-medium text-gray-600 px-4 py-2 hover:text-gray-900 transition-colors">
                 Anmelden
               </Link>
-              <Link href="/register" className="text-sm font-medium text-white bg-gray-900 px-4 py-2 rounded-lg">
+              <Link href="/register" className="text-sm font-medium text-white bg-gray-900 px-4 py-2 rounded-lg hover:bg-gray-800 transition-colors">
                 Starten
               </Link>
             </div>
