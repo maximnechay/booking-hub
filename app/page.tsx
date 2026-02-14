@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Calendar, Users, Zap, Shield, ArrowRight, Play, Sparkles, Building2, MousePointerClick, SlidersHorizontal, BadgeEuro } from 'lucide-react'
+import Image from 'next/image'
+import { Calendar, Users, Zap, Shield, ArrowRight, Play, Sparkles, Building2, MousePointerClick, SlidersHorizontal, BadgeEuro, Star } from 'lucide-react'
 import HeroPreview from '../components/HeroPreview'
 import SiteHeader from '../components/SiteHeader'
 import SiteFooter from '../components/SiteFooter'
@@ -132,13 +133,19 @@ export default function Home() {
 
               <div className="mt-10 flex items-center gap-8">
                 <div className="flex">
-                  {[1, 2, 3, 4].map((i) => (
-                    <div
-                      key={i}
-                      className={`w-10 h-10 rounded-full border-2 border-white ${i > 1 ? '-ml-2' : ''}`}
-                      style={{
-                        background: `linear-gradient(135deg, ${['#60a5fa', '#a78bfa', '#fb923c', '#34d399'][i - 1]} 0%, ${['#3b82f6', '#8b5cf6', '#f97316', '#10b981'][i - 1]} 100%)`
-                      }}
+                  {[
+                    { src: '/avatars/zufriedene-kundin-online-buchung.jpg', alt: 'Zufriedene Kundin nutzt Online-Buchung' },
+                    { src: '/avatars/zufriedener-kunde-online-terminbuchung.jpg', alt: 'Zufriedener Kunde mit Online-Terminbuchung' },
+                    { src: '/avatars/kundin-salon-online-termin.jpg', alt: 'Kundin bucht Salon-Termin online' },
+                    { src: '/avatars/kunde-bewertung-online-booking.jpg', alt: 'Kunde bewertet Online-Booking positiv' },
+                  ].map((avatar, i) => (
+                    <Image
+                      key={avatar.src}
+                      src={avatar.src}
+                      alt={avatar.alt}
+                      width={40}
+                      height={40}
+                      className={`w-10 h-10 rounded-full border-2 border-white object-cover ${i > 0 ? '-ml-2' : ''}`}
                     />
                   ))}
                 </div>
@@ -178,55 +185,114 @@ export default function Home() {
                   rel={isDemo ? 'noopener noreferrer' : undefined}
                   className={`group relative h-full rounded-3xl border border-gray-200 p-8 transition-all hover:-translate-y-0.5 hover:shadow-xl hover:border-gray-300 ${segment.styles.card}`}
                 >
-                {segment.badge && (
-                  <div className={`absolute right-6 top-6 rounded-full px-3 py-1 text-xs font-semibold ${segment.badgeClassName}`}>
-                    {segment.badge}
+                  {segment.badge && (
+                    <div className={`absolute right-6 top-6 rounded-full px-3 py-1 text-xs font-semibold ${segment.badgeClassName}`}>
+                      {segment.badge}
+                    </div>
+                  )}
+
+                  <div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-2xl ${segment.styles.iconBg}`}>
+                    <segment.icon className={`h-6 w-6 ${segment.styles.icon}`} />
                   </div>
-                )}
 
-                <div className={`mb-6 flex h-12 w-12 items-center justify-center rounded-2xl ${segment.styles.iconBg}`}>
-                  <segment.icon className={`h-6 w-6 ${segment.styles.icon}`} />
-                </div>
+                  <h3 className="text-xl font-bold mb-2">{segment.name}</h3>
+                  <p className={`text-sm ${segment.name === 'Studio-Kette' ? 'text-white/70' : 'text-gray-600'}`}>
+                    {segment.description}
+                  </p>
+                  <div className={`mt-4 text-sm font-semibold ${segment.styles.promise}`}>{segment.promise}</div>
 
-                <h3 className="text-xl font-bold mb-2">{segment.name}</h3>
-                <p className={`text-sm ${segment.name === 'Studio-Kette' ? 'text-white/70' : 'text-gray-600'}`}>
-                  {segment.description}
-                </p>
-                <div className={`mt-4 text-sm font-semibold ${segment.styles.promise}`}>{segment.promise}</div>
+                  <ul className={`mt-5 space-y-2 text-sm ${segment.name === 'Studio-Kette' ? 'text-white/80' : 'text-gray-600'}`}>
+                    {segment.bullets.map((bullet) => (
+                      <li key={bullet} className="flex items-start gap-2">
+                        <span
+                          className={`mt-2 h-1.5 w-1.5 rounded-full ${segment.name === 'Studio-Kette' ? 'bg-white/70' : 'bg-gray-400'}`}
+                        />
+                        <span>{bullet}</span>
+                      </li>
+                    ))}
+                  </ul>
 
-                <ul className={`mt-5 space-y-2 text-sm ${segment.name === 'Studio-Kette' ? 'text-white/80' : 'text-gray-600'}`}>
-                  {segment.bullets.map((bullet) => (
-                    <li key={bullet} className="flex items-start gap-2">
-                      <span
-                        className={`mt-2 h-1.5 w-1.5 rounded-full ${segment.name === 'Studio-Kette' ? 'bg-white/70' : 'bg-gray-400'}`}
-                      />
-                      <span>{bullet}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <div className="mt-8 space-y-2">
-                  <div
-                    className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${
-                      segment.name === 'Studio-Kette'
-                        ? 'bg-white text-gray-900'
-                        : 'bg-gray-900 text-white'
-                    }`}
-                  >
-                    {segment.primary.label}
-                    <ArrowRight className="h-4 w-4" />
+                  <div className="mt-8 space-y-2">
+                    <div
+                      className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold ${segment.name === 'Studio-Kette'
+                          ? 'bg-white text-gray-900'
+                          : 'bg-gray-900 text-white'
+                        }`}
+                    >
+                      {segment.primary.label}
+                      <ArrowRight className="h-4 w-4" />
+                    </div>
+                    <div
+                      className={`text-xs font-medium ${segment.name === 'Studio-Kette' ? 'text-white/70' : 'text-gray-500'
+                        }`}
+                    >
+                      {segment.secondary.label} →
+                    </div>
                   </div>
-                  <div
-                    className={`text-xs font-medium ${
-                      segment.name === 'Studio-Kette' ? 'text-white/70' : 'text-gray-500'
-                    }`}
-                  >
-                    {segment.secondary.label} →
-                  </div>
-                </div>
-              </Link>
+                </Link>
               )
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-900">
+              Was unsere Kunden sagen
+            </h2>
+            <p className="mt-4 text-lg sm:text-xl text-gray-500">
+              Salons, die bereits mit BookingHub Zeit sparen
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              {
+                quote: 'Seit wir BookingHub nutzen, haben wir deutlich weniger No-Shows. Die automatischen Erinnerungen funktionieren einwandfrei.',
+                author: 'Sarah M.',
+                role: 'Inhaberin, Salon Glanz & Gloria',
+                avatar: { src: '/avatars/zufriedene-kundin-online-buchung.jpg', alt: 'Zufriedene Kundin nutzt Online-Buchung' },
+              },
+              {
+                quote: 'Endlich kein WhatsApp-Chaos mehr! Kunden buchen jetzt selbst online und ich habe mehr Zeit für meine Arbeit.',
+                author: 'Marco R.',
+                role: 'Barbier, Fade Kings Berlin',
+                avatar: { src: '/avatars/zufriedener-kunde-online-terminbuchung.jpg', alt: 'Zufriedener Kunde mit Online-Terminbuchung' },
+              },
+              {
+                quote: 'Die Einrichtung war super einfach. In 10 Minuten hatten wir alles online — genau wie versprochen.',
+                author: 'Lisa K.',
+                role: 'Kosmetikstudio Beauty Line',
+                avatar: { src: '/avatars/kundin-salon-online-termin.jpg', alt: 'Kundin bucht Salon-Termin online' },
+              },
+            ].map((testimonial) => (
+              <div key={testimonial.author} className="flex flex-col rounded-2xl border border-gray-200 bg-white p-6">
+                <div className="flex gap-0.5 mb-4">
+                  {[...Array(5)].map((_, i) => (
+                    <Star key={i} className="w-5 h-5 text-amber-400 fill-amber-400" />
+                  ))}
+                </div>
+                <p className="text-gray-700 mb-4 leading-relaxed flex-1">
+                  &ldquo;{testimonial.quote}&rdquo;
+                </p>
+                <div className="flex items-center gap-3 mt-auto">
+                  <Image
+                    src={testimonial.avatar.src}
+                    alt={testimonial.avatar.alt}
+                    width={40}
+                    height={40}
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                  />
+                  <div className="text-sm">
+                    <div className="font-semibold text-gray-900">{testimonial.author}</div>
+                    <div className="text-gray-500">{testimonial.role}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
