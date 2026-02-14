@@ -7,6 +7,8 @@ import { supabaseAdmin } from '@/lib/supabase/admin'
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml']
 const UPLOAD_TYPES = ['logo', 'cover'] as const
+const COVER_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg']
+const MAX_COVER_VIDEO_SIZE = 20 * 1024 * 1024 // 20MB
 
 type UploadType = (typeof UPLOAD_TYPES)[number]
 
@@ -51,12 +53,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 })
         }
 
-        if (!ALLOWED_TYPES.includes(file.type)) {
-            return NextResponse.json({ error: 'Invalid file type. Allowed: JPEG, PNG, WebP, SVG' }, { status: 400 })
+        const isCoverVideo = uploadType === 'cover' && COVER_VIDEO_TYPES.includes(file.type)
+        const isAllowedImage = ALLOWED_TYPES.includes(file.type)
+
+        if (!isAllowedImage && !isCoverVideo) {
+            return NextResponse.json(
+                { error: 'Invalid file type. Allowed: JPEG, PNG, WebP, SVG (and MP4/WebM/MOV for cover)' },
+                { status: 400 }
+            )
         }
 
-        if (file.size > MAX_FILE_SIZE) {
-            return NextResponse.json({ error: 'File too large. Max 5MB' }, { status: 400 })
+        const maxSize = isCoverVideo ? MAX_COVER_VIDEO_SIZE : MAX_FILE_SIZE
+        if (file.size > maxSize) {
+            return NextResponse.json(
+                { error: isCoverVideo ? 'File too large. Max 20MB for video' : 'File too large. Max 5MB' },
+                { status: 400 }
+            )
         }
 
         const ext = file.name.split('.').pop() || 'jpg'

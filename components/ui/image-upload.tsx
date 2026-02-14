@@ -15,6 +15,14 @@ interface ImageUploadProps {
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024
+const MAX_COVER_VIDEO_SIZE = 20 * 1024 * 1024
+const COVER_VIDEO_TYPES = ['video/mp4', 'video/webm', 'video/quicktime', 'video/ogg']
+const VIDEO_EXTENSIONS = ['.mp4', '.webm', '.mov', '.m4v', '.ogg']
+
+function isVideoUrl(url: string): boolean {
+    const cleanUrl = url.split('?')[0].split('#')[0].toLowerCase()
+    return VIDEO_EXTENSIONS.some(ext => cleanUrl.endsWith(ext))
+}
 
 export default function ImageUpload({
     currentUrl,
@@ -37,13 +45,17 @@ export default function ImageUpload({
         // Reset input so same file can be selected again
         e.target.value = ''
 
-        if (!file.type.startsWith('image/')) {
-            setError('Nur Bilddateien erlaubt')
+        const isCoverVideo = uploadType === 'cover' && COVER_VIDEO_TYPES.includes(file.type)
+        const isImage = file.type.startsWith('image/')
+
+        if (!isImage && !isCoverVideo) {
+            setError('Nur Bilder erlaubt (Cover auch MP4/WebM/MOV)')
             return
         }
 
-        if (file.size > MAX_FILE_SIZE) {
-            setError('Maximal 5 MB')
+        const maxSize = isCoverVideo ? MAX_COVER_VIDEO_SIZE : MAX_FILE_SIZE
+        if (file.size > maxSize) {
+            setError(isCoverVideo ? 'Video maximal 20 MB' : 'Maximal 5 MB')
             return
         }
 
@@ -114,6 +126,10 @@ export default function ImageUpload({
     }
 
     const isWide = aspect === 'wide'
+    const currentIsVideo = !!currentUrl && isVideoUrl(currentUrl)
+    const accept = uploadType === 'cover'
+        ? 'image/*,video/mp4,video/webm,video/quicktime,video/ogg'
+        : 'image/*'
 
     return (
         <div className="space-y-2">
@@ -126,12 +142,24 @@ export default function ImageUpload({
             >
                 {currentUrl ? (
                     <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                            src={currentUrl}
-                            alt={label}
-                            className="w-full h-full object-cover"
-                        />
+                        {currentIsVideo ? (
+                            <video
+                                src={currentUrl}
+                                className="w-full h-full object-cover"
+                                autoPlay
+                                muted
+                                loop
+                                playsInline
+                                preload="metadata"
+                            />
+                        ) : (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                                src={currentUrl}
+                                alt={label}
+                                className="w-full h-full object-cover"
+                            />
+                        )}
 
                         {/* Overlay on hover */}
                         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
@@ -167,7 +195,9 @@ export default function ImageUpload({
                         ) : (
                             <>
                                 <Upload className="w-6 h-6 mb-1" />
-                                <span className="text-xs">Bild hochladen</span>
+                                <span className="text-xs">
+                                    {uploadType === 'cover' ? 'Bild/Video hochladen' : 'Bild hochladen'}
+                                </span>
                             </>
                         )}
                     </button>
@@ -184,7 +214,7 @@ export default function ImageUpload({
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/*"
+                accept={accept}
                 onChange={handleFileChange}
                 className="hidden"
             />
